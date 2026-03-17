@@ -10,7 +10,7 @@ export function ReportButton() {
     if (estado === "generando") return;
     setEstado("generando");
     try {
-      // C1: simulado — C2: llamada real a FastAPI localhost:8000/api/reportes/generar
+      // C1: simulado — C2: llamada real a FastAPI localhost:8000/api/v1/reports/generar
       await new Promise(res => setTimeout(res, 2500));
       setEstado("exito");
     } catch {

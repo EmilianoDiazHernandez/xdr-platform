@@ -11,6 +11,12 @@ import time
 # ==========================================
 # ESTADO GLOBAL
 # ==========================================
+import os
+from pathlib import Path
+
+BASE_DIR      = Path(__file__).resolve().parent
+MODEL_DIR     = BASE_DIR / "model"
+
 rf_modelo     = None
 rf_scaler     = None
 config        = None
@@ -30,23 +36,30 @@ async def lifespan(app: FastAPI):
     global rf_modelo, rf_scaler, config, features_zeek
     global if_modelo, if_scaler, if_features, if_umbral
 
-    print("Cargando arquitectura XDR Dual...")
+    print(f"Cargando arquitectura XDR Dual desde {MODEL_DIR}...")
     try:
-        config        = joblib.load('rf_zeek_config.pkl')
-        rf_modelo     = joblib.load('rf_zeek_model.pkl')
-        rf_scaler     = joblib.load('rf_zeek_scaler.pkl')
-        features_zeek = joblib.load('rf_zeek_features.pkl')
+        config        = joblib.load(MODEL_DIR / 'rf_zeek_config.pkl')
+        rf_modelo     = joblib.load(MODEL_DIR / 'rf_zeek_model.pkl')
+        rf_scaler     = joblib.load(MODEL_DIR / 'rf_zeek_scaler.pkl')
+        features_zeek = joblib.load(MODEL_DIR / 'rf_zeek_features.pkl')
         print(f"RF cargado — {len(features_zeek)} features | "
               f"umbral={config.get('umbral_rf', 0.30)}")
     except Exception as e:
         print(f"ERROR CRITICO cargando RF: {e}")
-        raise
+        # Intentar cargar sin el prefijo model/ por si acaso (compatibilidad)
+        try:
+             config        = joblib.load(BASE_DIR / 'rf_zeek_config.pkl')
+             rf_modelo     = joblib.load(BASE_DIR / 'rf_zeek_model.pkl')
+             rf_scaler     = joblib.load(BASE_DIR / 'rf_zeek_scaler.pkl')
+             features_zeek = joblib.load(BASE_DIR / 'rf_zeek_features.pkl')
+        except:
+             raise e
 
     try:
-        if_modelo   = joblib.load('if_temporal_model.pkl')
-        if_scaler   = joblib.load('if_temporal_scaler.pkl')
-        if_umbral   = float(joblib.load('if_temporal_umbral.pkl'))
-        if_features = joblib.load('if_temporal_features.pkl')
+        if_modelo   = joblib.load(MODEL_DIR / 'if_temporal_model.pkl')
+        if_scaler   = joblib.load(MODEL_DIR / 'if_temporal_scaler.pkl')
+        if_umbral   = float(joblib.load(MODEL_DIR / 'if_temporal_umbral.pkl'))
+        if_features = joblib.load(MODEL_DIR / 'if_temporal_features.pkl')
         print("IF temporal cargado — Bot/SSH activo")
     except FileNotFoundError:
         print("AVISO: IF temporal no encontrado — solo RF volumétrico activo")

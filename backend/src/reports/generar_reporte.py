@@ -23,7 +23,10 @@ def generar_reporte_pdf(n_alertas: int = 100) -> str:
     grafica_barras_b64 = generar_grafica_barras_base64(df)
 
     print("Renderizando plantilla...")
-    env = Environment(loader=FileSystemLoader("templates"))
+    base_path = Path(__file__).resolve().parent
+    templates_path = base_path / "templates"
+    
+    env = Environment(loader=FileSystemLoader(str(templates_path)))
     template = env.get_template("reporte_alertas.html")
     html_str = template.render(
         titulo             = "Reporte de Alertas de Red",
@@ -35,11 +38,11 @@ def generar_reporte_pdf(n_alertas: int = 100) -> str:
     )
 
     nombre = f"ALERTAS-{datetime.now().strftime('%Y%m%d-%H%M')}.pdf"
-    ruta   = Path("output") / nombre
+    ruta   = base_path / "output" / nombre
     ruta.parent.mkdir(exist_ok=True)
 
     print("Generando PDF...")
-    HTML(string=html_str, base_url=".").write_pdf(str(ruta))
+    HTML(string=html_str, base_url=str(templates_path)).write_pdf(str(ruta))
     print(f"✓ Reporte generado: {ruta}")
     return str(ruta)
 
