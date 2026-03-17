@@ -2,9 +2,9 @@ from datetime import datetime
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
-from datos_sinteticos import generar_alertas
-from metricas import calcular_metricas
-from grafica import generar_grafica_barras_base64, generar_grafica_tiempo_base64
+from .datos_sinteticos import generar_alertas
+from .metricas import calcular_metricas
+from .grafica import generar_grafica_barras_base64, generar_grafica_tiempo_base64
 
 def generar_reporte_pdf(n_alertas: int = 100) -> str:
     print("Generando datos sintéticos...")
