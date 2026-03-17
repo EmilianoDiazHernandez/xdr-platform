@@ -1,34 +1,62 @@
-version: '3.8'
-
 services:
-  # TimescaleDB (PostgreSQL) para eventos temporales (Tráfico, Alertas)
-  # Se delega la construcción al subdirectorio correspondiente
-  xdr-db:
+  # Motor de ML (Análisis de Tráfico)
+  api-ml:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xdr-api-ml
+    ports:
+      - "8000:8000"
+    command: uvicorn ml.fastAPI:app --host 0.0.0.0 --port 8000
+    networks:
+      - xdr-network
+
+  # Motor de Reportes (Independiente)
+  api-reports:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xdr-api-reports
+    ports:
+      - "8001:8001"
+    command: uvicorn reports.api:app --host 0.0.0.0 --port 8001
+    networks:
+      - xdr-network
+
+  # Dashboard (Frontend Web para Desarrollo)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: xdr-dashboard
+    ports:
+      - "3000:3000"
+    networks:
+      - xdr-network
+
+  # Bases de Datos (Ya existentes en estructura)
+  timescaledb:
     build: ./database/timescaledb
-    container_name: xdr_timescaledb
-    environment:
-      - POSTGRES_USER=admin_xdr
-      - POSTGRES_PASSWORD=password_123
-      - POSTGRES_DB=xdr_network_db
+    container_name: xdr-db-timescale
     ports:
       - "5432:5432"
-    volumes:
-      - timescaledb_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  # Neo4j para representar la topología de red interactiva
-  xdr-neo4j:
-    build: ./database/neo4j
-    container_name: xdr_neo4j
     environment:
-      - NEO4J_AUTH=neo4j/password_123
-    ports:
-      - "7474:7474" # Interfaz HTTP
-      - "7687:7687" # Protocolo Bolt
-    volumes:
-      - neo4j_data:/data
-    restart: unless-stopped
+      POSTGRES_DB: xdr_db
+      POSTGRES_USER: xdr_user
+      POSTGRES_PASSWORD: xdr_password
+    networks:
+      - xdr-network
 
-volumes:
-  timescaledb_data:
-  neo4j_data:
+  neo4j:
+    build: ./database/neo4j
+    container_name: xdr-db-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/xdr_password
+    networks:
+      - xdr-network
+
+networks:
+  xdr-network:
+    driver: bridge
