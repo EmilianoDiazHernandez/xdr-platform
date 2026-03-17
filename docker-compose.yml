@@ -7,7 +7,9 @@ services:
     container_name: xdr-api-ml
     ports:
       - "8000:8000"
-    command: uvicorn ml.fastAPI:app --host 0.0.0.0 --port 8000
+    command: uvicorn ml.fastAPI:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend/src:/app/src
     networks:
       - xdr-network
 
@@ -19,7 +21,9 @@ services:
     container_name: xdr-api-reports
     ports:
       - "8001:8001"
-    command: uvicorn reports.api:app --host 0.0.0.0 --port 8001
+    command: uvicorn reports.api:app --host 0.0.0.0 --port 8001 --reload
+    volumes:
+      - ./backend/src:/app/src
     networks:
       - xdr-network
 
