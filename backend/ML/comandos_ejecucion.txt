@@ -1,0 +1,2 @@
+sudo service redis-server start
+uvicorn fastAPI3:app --reload
