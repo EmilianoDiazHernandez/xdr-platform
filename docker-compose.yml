@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # TimescaleDB (PostgreSQL) para eventos temporales (Tráfico, Alertas)
+  # Se delega la construcción al subdirectorio correspondiente
+  xdr-db:
+    build: ./database/timescaledb
+    container_name: xdr_timescaledb
+    environment:
+      - POSTGRES_USER=admin_xdr
+      - POSTGRES_PASSWORD=password_123
+      - POSTGRES_DB=xdr_network_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Neo4j para representar la topología de red interactiva
+  xdr-neo4j:
+    build: ./database/neo4j
+    container_name: xdr_neo4j
+    environment:
+      - NEO4J_AUTH=neo4j/password_123
+    ports:
+      - "7474:7474" # Interfaz HTTP
+      - "7687:7687" # Protocolo Bolt
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
+volumes:
+  timescaledb_data:
+  neo4j_data:

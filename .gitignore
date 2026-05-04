@@ -12,6 +12,8 @@ env/
 # Base de datos
 data/
 *.sql.gz
+# No ignorar los scripts SQL del proyecto
+!database/**/*.sql
 
 # OS
 Thumbs.db
