@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri (ya no se usa)
+src-tauri/
+target/
+
+# Reportes
+reportes/output/
+*.pdf
+
+# Variables de entorno
+.env
+.env.local
+.env.production
