@@ -1,0 +1,12 @@
+====================
+ataques
+====================
+powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Write-Host 'Probando motor EDR de Alfonso...'; $env:TEMP\payload.exe"
+sudo nmap -sS -p 22,23,80,443,3389,8080 --min-rate 2000 172.31.32.1
+====================
+powershell
+====================
+ C:\Users\spide\OneDrive\Documentos\IPN\TT\xdr-platform\backend\ML
+ py envio_sysmon.py
+===================
+ uvicorn fastAPI3:app --reload --host 0.0.0.0 --port 8000

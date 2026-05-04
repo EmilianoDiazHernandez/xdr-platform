@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -16,9 +17,12 @@ import json
 import logging
 import math
 import string
+import os
 from collections import Counter
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+import asyncpg
+import uuid
 
 # ==========================================
 # 1. LOGGING Y RATE LIMITING
@@ -30,6 +34,7 @@ def identificar_sensor(request: Request) -> str:
     return request.headers.get("X-Sensor-ID", get_remote_address(request))
 
 limiter = Limiter(key_func=identificar_sensor)
+
 
 # ==========================================
 # 2. PRE-COMPILACIÓN DE REGEX
@@ -57,6 +62,22 @@ def ratio_especiales(texto):
     especiales = sum(1 for c in str(texto) if c in string.punctuation)
     return especiales / len(str(texto))
 
+def get_port_range(port):
+    """Clasifica el puerto destino en rangos significativos (mismo que en entrenamiento)."""
+    if port in [80, 443, 8080, 8443]:
+        return 'web'
+    elif port in [53, 5353]:
+        return 'dns'
+    elif port in [22, 23, 3389]:
+        return 'remote'
+    elif port in [25, 587, 993, 465]:
+        return 'mail'
+    elif 1 <= port <= 1024:
+        return 'privileged'
+    elif 1025 <= port <= 49151:
+        return 'registered'
+    else:
+        return 'dynamic'
 # ==========================================
 # ESTADO GLOBAL ML Y REDIS
 # ==========================================
@@ -73,20 +94,90 @@ TTL_EDR = 1800
 TTL_EMAIL = 3600
 
 # ==========================================
+# ESTADO GLOBAL (Base de datos)
+# ==========================================
+db_pool = None
+
+async def registrar_alerta_db(ip_afectada: str, severidad_nombre: str, tipo_capa: str, accion: str, descripcion: str):
+    """Guarda la alerta en la hypertable de PostgreSQL."""
+    if not db_pool:
+        return
+    
+    try:
+        async with db_pool.acquire() as conn:
+            # 1. Buscar el UUID del dispositivo (para mantener la 3NF)
+            # AJUSTE 1: Agregamos ::inet para que asyncpg convierta el string a tipo IP nativo
+            dispositivo = await conn.fetchrow("""
+                SELECT d.id_dispositivo 
+                FROM dispositivos d
+                JOIN dispositivo_ips di ON d.id_dispositivo = di.id_dispositivo
+                WHERE di.direccion_ip = $1::inet AND di.activa = TRUE
+                LIMIT 1
+            """, ip_afectada)
+            
+            # AJUSTE 2: Convertimos el string a un objeto UUID real de Python
+            id_dispositivo = dispositivo['id_dispositivo'] if dispositivo else uuid.UUID('00000000-0000-0000-0000-000000000000')
+
+            # 2. Obtener el ID de severidad
+            severidad = await conn.fetchval("SELECT id_severidad FROM cat_severidad WHERE nombre = $1", severidad_nombre)
+            id_severidad = severidad if severidad else 2
+
+            # 3. Insertar la alerta
+            await conn.execute("""
+                INSERT INTO alertas_xdr 
+                (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion)
+                VALUES (NOW(), $1, $2, 1, 'Machine Learning', $3, $4)
+            """, id_dispositivo, id_severidad, tipo_capa, f"Acción tomada: {accion} | Detalles: {descripcion}")
+            
+    except Exception as e:
+        logger.error(f"[DB_ERROR] Fallo al guardar alerta en DB: {e}")
+# ==========================================
 # LIFESPAN
 # ==========================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_client
+    global redis_client, db_pool
     global config_red, rf_modelo, rf_scaler, rf_encoder, features_num_red, features_cat_red, features_bin_red, rf_clipping
     global edr_modelo, config_edr, edr_vectorizador, edr_cadenas, columnas_estructuradas
     global email_modelo, config_email, email_vectorizador, email_scaler, email_intel, columnas_email
 
     logger.info("="*40 + " BOOTSTRAP XDR " + "="*40)
+    #Postgresql
+    try:
+        for intento in range(10):
+            try:
+                logger.info(f"Intentando conectar a PostgreSQL (Intento {intento+1}/10)...")
+                
+                db_host = os.getenv("DB_HOST", "localhost")
+                db_port = os.getenv("DB_PORT", "5433")
+                db_pool = await asyncpg.create_pool(
+                    dsn=f"postgresql://usuario:password@{db_host}:{db_port}/tu_db_xdr",
+                    command_timeout=60, 
+                    min_size=1,
+                    max_size=10,
+                    ssl=False  # <--- ESTA ES LA CLAVE MÁGICA: Apaga la negociación SSL
+                )
+                
+                async with db_pool.acquire() as conn:
+                    await conn.execute("SELECT 1")
+                    
+                logger.info("[OK] PostgreSQL (TimescaleDB) conectado exitosamente.")
+                break 
+                
+            except Exception as e:
+                if intento < 9:
+                    logger.warning(f"[!] Base de datos iniciando. Esperando 5s... ({str(e).strip()})")
+                    await asyncio.sleep(5)
+                else:
+                    logger.error("Error final de conexión: Excedido el tiempo de espera.")
+                    raise e
+    except Exception as e:
+        logger.error(f"[!] Falla crítica PostgreSQL: {e}")
 
     # Redis
     try:
-        redis_client = await redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_client = await redis.Redis(host=redis_host, port=6379, db=0, decode_responses=True)
         await redis_client.ping()
         logger.info("[OK] Redis conectado exitosamente.")
     except Exception as e:
@@ -94,7 +185,9 @@ async def lifespan(app: FastAPI):
 
     # Capa RED
     try:
-        ruta_red = r'C:\Users\spide\OneDrive\Documentos\IPN\TT\EMPAQUETADOS\CAPA_RED'
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(base_dir))
+        ruta_red = os.path.join(project_root, 'CAPA_RED', 'CAPA_RED')
         config_red = joblib.load(f'{ruta_red}/xdr_red_config.pkl')
         rf_modelo = joblib.load(f'{ruta_red}/xdr_red_model.pkl')
         rf_scaler = joblib.load(f'{ruta_red}/xdr_red_scaler.pkl')
@@ -109,7 +202,8 @@ async def lifespan(app: FastAPI):
 
     # Capa ENDPOINT
     try:
-        ruta_edr = r'C:\Users\spide\OneDrive\Documentos\IPN\TT\EMPAQUETADOS\CAPA_ENDPOINT'
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        ruta_edr = os.path.join(base_dir, 'EMPAQUETADOS', 'CAPA_ENDPOINT', 'CAPA_ENDPOINT')
         config_edr = joblib.load(f'{ruta_edr}/xdr_endpoint_config.pkl')
         edr_modelo = joblib.load(f'{ruta_edr}/xdr_endpoint_model.pkl')
         edr_vectorizador = joblib.load(f'{ruta_edr}/xdr_endpoint_vectorizer.pkl')
@@ -124,7 +218,8 @@ async def lifespan(app: FastAPI):
 
     # Capa EMAIL (corregida con más logs)
     try:
-        ruta_email = r'C:\Users\spide\OneDrive\Documentos\IPN\TT\EMPAQUETADOS\CAPA_EMAIL'
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        ruta_email = os.path.join(base_dir, 'EMPAQUETADOS', 'CAPA_EMAIL', 'CAPA_EMAIL')
         config_email = joblib.load(f'{ruta_email}/xdr_email_config.pkl')
         email_modelo = joblib.load(f'{ruta_email}/xdr_email_model.pkl')
         email_vectorizador = joblib.load(f'{ruta_email}/xdr_email_vectorizer.pkl')
@@ -139,9 +234,20 @@ async def lifespan(app: FastAPI):
     yield
     if redis_client:
         await redis_client.close()
+    if db_pool: # <-- Añade el cierre de la DB
+        await db_pool.close()
     logger.info("Apagando XDR Platform...")
 
 app = FastAPI(title="XDR Platform", version="9.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -150,6 +256,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # ==========================================
 class ZeekLog(BaseModel):
     orig_ip: str
+    resp_ip: str = "0.0.0.0"
     duration: float = 0.0
     orig_bytes: float = 0.0
     resp_bytes: float = 0.0
@@ -158,6 +265,7 @@ class ZeekLog(BaseModel):
     orig_ip_bytes: float = 0.0
     resp_pkts: float = 0.0
     resp_ip_bytes: float = 0.0
+    id_resp_p: int = 0
     proto: str = "-"
     conn_state: str = "-"
     service: str = "-"
@@ -187,12 +295,13 @@ class EmailLog(BaseModel):
 # ENDPOINT RED
 # ==========================================
 @app.post("/api/v1/analyze-network")
-@limiter.limit("500/minute")
-async def analizar_trafico(request: Request, log: ZeekLog):
+@limiter.limit("5000/minute")
+async def analizar_trafico(request: Request, log: ZeekLog, bg_tasks: BackgroundTasks):
     if rf_modelo is None:
         raise HTTPException(status_code=500, detail="Modelo RED no cargado.")
 
     try:
+        # 1. Variables Binarias (Historial y Local)
         hist = log.history.lower() if log.history else ""
         hist_S = 1 if 's' in hist else 0
         hist_R = 1 if 'r' in hist else 0
@@ -203,28 +312,82 @@ async def analizar_trafico(request: Request, log: ZeekLog):
         loc_resp = 1 if log.local_resp.upper() == 'T' else 0
         bin_data = np.array([[loc_orig, loc_resp, hist_S, hist_R, hist_A, hist_F]], dtype=np.float64)
 
+        # 2. Variables Numéricas (¡ADIÓS CLIPPING, SOLO LOG1P!)
         num_dict = log.model_dump(include=set(features_num_red))
         df_num = pd.DataFrame([num_dict])[features_num_red]
         for col in features_num_red:
-            if col in rf_clipping:
-                lims = rf_clipping[col]
-                df_num[col] = df_num[col].clip(lower=lims['lower'], upper=lims['upper'])
+            # Aplicamos log1p protegiendo contra números negativos con un piso de 0
             df_num[col] = np.log1p(df_num[col].clip(lower=0))
         X_num_scaled = rf_scaler.transform(df_num)
 
-        cat_dict = log.model_dump(include=set(features_cat_red))
+        # 3. Variables Categóricas y Creación Dinámica de 'port_range'
+        cat_cols_to_extract = set(features_cat_red) - {'port_range'}
+        cat_dict = log.model_dump(include=cat_cols_to_extract)
+        
         for k, v in cat_dict.items():
-            cat_dict[k] = str(v).strip().lower()
+            val = str(v).strip().lower()
+            #  FIX MLOps: Traducir el guion a '0' para que coincida con el dataset entrenado
+            cat_dict[k] = "0" if val == "-" else val
+
+        # INYECCIÓN DE LA NUEVA FEATURE: port_range
+        puerto_destino = getattr(log, 'id_resp_p', 0) 
+        cat_dict['port_range'] = get_port_range(int(puerto_destino))
+
+        # Aseguramos el orden correcto de las columnas categóricas
         df_cat = pd.DataFrame([cat_dict])[features_cat_red]
         X_cat_encoded = rf_encoder.transform(df_cat)
 
+        # 4. Fusión de características
         X_final = np.hstack((X_num_scaled, X_cat_encoded, bin_data))
-        probs = await asyncio.to_thread(rf_modelo.predict_proba, X_final)
-        prob_red = float(probs[0][1])
+        
+        es_ataque_volumetrico = log.orig_pkts > 10000 and log.conn_state in ['S0', 'REJ']
+        es_escaneo = False
+
+        if redis_client is not None:
+            try:
+                # Regla 2: Escaneo de Puertos Sigiloso (Nmap)
+                llave_scan = f"scan:{log.orig_ip}"
+                # Guardamos el puerto destino en un Set (evita duplicados automáticamente)
+                await redis_client.sadd(llave_scan, log.id_resp_p)
+                # Le damos una vida de 10 segundos a esta llave
+                await redis_client.expire(llave_scan, 10)
+                
+                # Contamos cuántos puertos ÚNICOS ha tocado esta IP
+                puertos_tocados = await redis_client.scard(llave_scan)
+                
+                # Si toca 5 o más puertos distintos en menos de 10s, es Nmap
+                if puertos_tocados >= 5:
+                    es_escaneo = True
+                
+                llave_rate = f"rate_tcp:{log.orig_ip}"
+                intentos = await redis_client.incr(llave_rate)
+                
+                # Si es el primer paquete TCP que vemos, iniciamos la ventana de 2 segundos
+                if intentos == 1:
+                    await redis_client.expire(llave_rate, 2)
+                
+                # Si lanza más de 50 paquetes TCP aislados en menos de 2 segundos, es Flood
+                if intentos > 50:
+                    es_ataque_volumetrico = True
+                    
+            except Exception as e:
+                pass
+
+        # Decisión final: Heurística vs Machine Learning
+        if es_ataque_volumetrico or es_escaneo:
+            prob_red = 0.99  # El ataque es físicamente innegable
+        else:
+            # Si el tráfico es normal o sutil, dejamos que LightGBM haga su magia
+            probs = await asyncio.to_thread(rf_modelo.predict_proba, X_final)
+            prob_red = float(probs[0][1])
+            
     except Exception as e:
         logger.error(f"Error inferencia RED: {e}")
         raise HTTPException(status_code=500, detail=f"inference_failed: {e}")
 
+    # ==========================================
+    # LÓGICA DE FUSIÓN XDR (Bayesiana para la RED)
+    # ==========================================
     prob_edr = 0.0
     host_asociado = "sin_contexto"
     redis_ok = redis_client is not None
@@ -232,12 +395,15 @@ async def analizar_trafico(request: Request, log: ZeekLog):
     if redis_ok:
         try:
             pipe = redis_client.pipeline()
-            pipe.setex(f"red:{log.orig_ip}:prob", TTL_RED, prob_red)
+            # Guardamos la alerta bajo la IP de la VÍCTIMA
+            pipe.setex(f"red:{log.resp_ip}:prob", TTL_RED, prob_red)
             alerta = json.dumps({"ts": time.time(), "prob": prob_red})
-            pipe.lpush(f"alertas_red:{log.orig_ip}", alerta)
-            pipe.expire(f"alertas_red:{log.orig_ip}", TTL_RED)
+            pipe.lpush(f"alertas_red:{log.resp_ip}", alerta)
+            pipe.expire(f"alertas_red:{log.resp_ip}", TTL_RED)
             await pipe.execute()
-            host_asociado = await redis_client.get(f"ip_host:{log.orig_ip}")
+            
+            # Buscamos si esta VÍCTIMA tiene un agente EDR con problemas recientes
+            host_asociado = await redis_client.get(f"ip_host:{log.resp_ip}")
             if host_asociado:
                 val_edr = await redis_client.get(f"edr:{host_asociado}:prob")
                 if val_edr:
@@ -245,15 +411,36 @@ async def analizar_trafico(request: Request, log: ZeekLog):
         except Exception:
             redis_ok = False
 
-    PESO_EDR = 1.0
-    PESO_RED = 1.0
+    # Fusión Bayesiana (Perspectiva de Red)
+    PESO_EDR = 0.45
+    PESO_RED = 0.55
     red_ponderada = prob_red * PESO_RED
     edr_ponderada = prob_edr * PESO_EDR
-    prob_fusion = 1 - ((1 - red_ponderada) * (1 - edr_ponderada))
-    alerta_cruzada = prob_fusion >= 0.70
-    umbral_red = config_red.get('umbral', 0.55)
-    accion = "BLOQUEAR_IP_Y_HOST" if alerta_cruzada else "ALERTA" if prob_red >= umbral_red else "PERMITIR"
-
+    prob_fusion = red_ponderada + edr_ponderada
+    
+    alerta_cruzada = prob_fusion >= 0.65
+    umbral_red = config_red.get('umbral', 0.480) 
+    
+    # Toma de decisión exclusiva de RED
+    if alerta_cruzada:
+        accion = "BLOQUEAR_IP_Y_HOST"
+        severidad = "Alta"
+    elif prob_red >= umbral_red:
+        accion = "ALERTA"
+        severidad = "Media"
+    else:
+        accion = "PERMITIR"
+        severidad = "Baja"
+        
+    bg_tasks.add_task(
+        registrar_alerta_db,
+        ip_afectada=log.resp_ip,
+        severidad_nombre=severidad,
+        tipo_capa="CAPA_RED",
+        accion=accion,
+        descripcion=f"Anomalía detectada. Prob RED: {prob_red:.4f}. Fusión: {prob_fusion:.4f}."
+    )
+        
     return {
         "origen": "CAPA_RED",
         "prob_red_cruda": round(prob_red, 4),
@@ -329,7 +516,7 @@ def extraer_features_edr(log: SysmonLog, historial_tuplas: list):
 
 @app.post("/api/v1/analyze-endpoint")
 @limiter.limit("500/minute")
-async def analizar_proceso(request: Request, log: SysmonLog):
+async def analizar_proceso(request: Request, log: SysmonLog, bg_tasks: BackgroundTasks):
     if edr_modelo is None or redis_client is None:
         raise HTTPException(status_code=500, detail="Modelo o DB offline")
 
@@ -349,6 +536,7 @@ async def analizar_proceso(request: Request, log: SysmonLog):
     except Exception:
         historial_actual = [{"cmd": proc_nombre}]
 
+    # AQUÍ SE DEFINE cadena_activa
     try:
         X_estructuradas, cadena_activa = extraer_features_edr(log, historial_actual)
         texto_nlp = f"{log.cmd or ''} {log.proceso or ''} {log.proceso_padre or ''}"
@@ -363,6 +551,19 @@ async def analizar_proceso(request: Request, log: SysmonLog):
         logger.error(f"Error inferencia EDR: {e}")
         return {"error": "inference_failed"}
 
+    rutas_seguras = [
+        "postgresql", "Zoom ", "googleupdater", "hp one agent", "rg", 
+        "system32\\svchost.exe", "microsoft vs code"
+    ]
+    
+    texto_evaluado = f"{log.cmd or ''} {log.proceso or ''}".lower()
+    es_software_seguro = any(ruta in texto_evaluado for ruta in rutas_seguras)
+
+    if es_software_seguro and not cadena_activa:
+       if prob_edr < 0.85:
+            prob_edr = 0.15
+
+    # Búsqueda de contexto en RED
     prob_red = 0.0
     try:
         await redis_client.setex(f"edr:{log.host}:prob", TTL_EDR, prob_edr)
@@ -372,22 +573,40 @@ async def analizar_proceso(request: Request, log: SysmonLog):
     except Exception:
         pass
 
-    PESO_EDR = 1.0
-    PESO_RED = 1.0
-    red_ponderada = prob_red * PESO_RED
-    edr_ponderada = prob_edr * PESO_EDR
-    prob_fusion = 1 - ((1 - red_ponderada) * (1 - edr_ponderada))
+    # Fusión Matemática Bayesiana
+    PESO_EDR = 0.45
+    PESO_RED = 0.55
+    
+    # Si la red no reporta actividad (prob_red == 0), asumimos que el entorno es más seguro,
+    # por lo que la probabilidad fusionada se suaviza un poco respecto a la cruda.
+    if prob_red == 0.0:
+        prob_fusion = (prob_edr * 0.75) + (0.05 * 0.25)
+    else:
+        red_ponderada = prob_red * PESO_RED
+        edr_ponderada = prob_edr * PESO_EDR
+        prob_fusion = red_ponderada + edr_ponderada
+    
     if cadena_activa:
-        prob_fusion = min(1.0, prob_fusion + 0.25)
+        prob_fusion = min(1.0, prob_fusion + 0.25) 
 
-    opt_thr = config_edr.get('umbral', 0.5)
-    if cadena_activa or prob_fusion >= 0.80:
+    # Toma de decisión
+    opt_thr = config_edr.get('umbral', 0.55) # Un umbral más equilibrado
+    
+    # 1. Si hay cadena sospechosa exacta o la fusión está casi segura de un ataque grave
+    if cadena_activa or prob_fusion >= 0.85:
         accion = "AISLAMIENTO_TOTAL_DEL_HOST"
-    elif prob_edr >= opt_thr:
+        severidad = "Alta"
+    # 2. Si la fusión de red y endpoint supera el umbral de sospecha (Aprovechamos la bayesiana)
+    elif prob_fusion >= opt_thr:
         accion = "BLOQUEAR_PROCESO"
+        severidad = "Media"
+    # 3. Si no hay suficiente evidencia, se permite
     else:
         accion = "PERMITIR"
+        severidad = "Baja"
 
+    # Guardado de alertas en Redis
+    # Guardado de alertas en Redis
     if redis_client and accion != "PERMITIR":
         try:
             alerta = json.dumps({"ts": time.time(), "prob": prob_edr, "accion": accion})
@@ -395,6 +614,16 @@ async def analizar_proceso(request: Request, log: SysmonLog):
             await redis_client.expire(f"alertas_edr:{log.host}", TTL_EDR)
         except Exception:
             pass
+
+    # Lanza la tarea para PostgreSQL en segundo plano
+    bg_tasks.add_task(
+        registrar_alerta_db,
+        ip_afectada=log.ip_local,       # En SysmonLog la IP afectada es ip_local
+        severidad_nombre=severidad,
+        tipo_capa="CAPA_ENDPOINT",      # Especificamos que viene del agente EDR
+        accion=accion,
+        descripcion=f"Proceso anómalo: {log.proceso}. CMD: {log.cmd}. Prob EDR: {prob_edr:.4f}. Fusión: {prob_fusion:.4f}."
+    )
 
     return {
         "origen": "CAPA_ENDPOINT",
@@ -410,7 +639,7 @@ async def analizar_proceso(request: Request, log: SysmonLog):
 
 @app.post("/api/v1/analyze-email")
 @limiter.limit("200/minute")
-async def analizar_email(request: Request, log: EmailLog):
+async def analizar_email(request: Request, log: EmailLog, bg_tasks: BackgroundTasks):
     if email_modelo is None:
         raise HTTPException(status_code=500, detail="Modelo EMAIL no cargado.")
 
@@ -460,17 +689,19 @@ async def analizar_email(request: Request, log: EmailLog):
         raise HTTPException(status_code=500, detail=f"inference_failed: {str(e)}")
 
     # Decisiones basadas exclusivamente en el correo
-    # Decisiones basadas exclusivamente en el correo (Es independiente)
     umbrales = config_email.get('umbrales', {})
     accion = "PERMITIR"
     if prob_phish >= umbrales.get('phishing_aislamiento', 0.85):
         accion = "AISLAMIENTO_Y_CUARENTENA_BUZON"
+        severidad = "Alta"
     elif prob_phish >= umbrales.get('phishing_bloqueo', 0.70):
         accion = "ELIMINAR_CORREO_PHISHING"
+        severidad = "Media"
     elif prob_spam >= umbrales.get('spam_bloqueo', 0.80):
         accion = "MOVER_A_SPAM"
+        severidad = "Baja"
 
-    # 🔥 FIX: SÍ debemos guardar en Redis para que EDR y RED eleven sus escudos
+    # Guardado de alertas en Redis
     if redis_client:
         try:
             await redis_client.setex(f"email:{log.host}:prob", TTL_EMAIL, prob_phish)
@@ -478,7 +709,18 @@ async def analizar_email(request: Request, log: EmailLog):
                 alerta = json.dumps({"ts": time.time(), "phish": prob_phish, "spam": prob_spam, "accion": accion})
                 await redis_client.lpush(f"alertas_email:{log.host}", alerta)
                 await redis_client.expire(f"alertas_email:{log.host}", TTL_EMAIL)
-        except Exception: pass
+        except Exception: 
+            pass
+
+    # Lanza la tarea para PostgreSQL en segundo plano
+    bg_tasks.add_task(
+        registrar_alerta_db,
+        ip_afectada=log.ip_local,       # En EmailLog la IP de la víctima es ip_local
+        severidad_nombre=severidad,     # Ya definida en tus if/elif (Crítica, Alta o Media)
+        tipo_capa="CAPA_EMAIL",         # Especificamos que viene del análisis de correo
+        accion=accion,
+        descripcion=f"Correo anómalo. Phishing: {prob_phish:.4f}, Spam: {prob_spam:.4f}, URLs Maliciosas OSINT: {num_maliciosas}"
+    )
 
     return {
         "origen": "CAPA_EMAIL",
@@ -487,6 +729,22 @@ async def analizar_email(request: Request, log: EmailLog):
         "indicadores_osint": num_maliciosas,
         "accion": accion
     }
+
+# ==========================================
+# ENDPOINT ALERTAS FRONTEND
+# ==========================================
+@app.get("/api/v1/alertas")
+async def get_alertas():
+    if not db_pool:
+        raise HTTPException(status_code=500, detail="Base de datos no conectada")
+    try:
+        async with db_pool.acquire() as conn:
+            registros = await conn.fetch("SELECT id, ip_origen, timestamp, severidad, descripcion FROM vista_alertas_frontend LIMIT 50")
+            alertas = [dict(r) for r in registros]
+            return alertas
+    except Exception as e:
+        logger.error(f"[DB_ERROR] Fallo al obtener alertas: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener alertas de la DB")
 
 # ==========================================
 # HEALTH CHECK

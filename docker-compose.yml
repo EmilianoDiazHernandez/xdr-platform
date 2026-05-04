@@ -1,34 +1,105 @@
 version: '3.8'
 
 services:
-  # TimescaleDB (PostgreSQL) para eventos temporales (Tráfico, Alertas)
-  # Se delega la construcción al subdirectorio correspondiente
-  xdr-db:
-    build: ./database/timescaledb
-    container_name: xdr_timescaledb
-    environment:
-      - POSTGRES_USER=admin_xdr
-      - POSTGRES_PASSWORD=password_123
-      - POSTGRES_DB=xdr_network_db
+  # Motor de ML (Análisis de Tráfico)
+  api-ml:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xdr-api-ml
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    command: uvicorn ML.fastAPI3:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - timescaledb_data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - ./backend:/app
+      - ./CAPA_RED:/CAPA_RED
+    environment:
+      - DB_HOST=db_xdr
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+    depends_on:
+      - db_xdr
+      - redis
+    networks:
+      - xdr-network
 
-  # Neo4j para representar la topología de red interactiva
-  xdr-neo4j:
-    build: ./database/neo4j
-    container_name: xdr_neo4j
-    environment:
-      - NEO4J_AUTH=neo4j/password_123
+  # Motor de Reportes (Independiente)
+  api-reports:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xdr-api-reports
     ports:
-      - "7474:7474" # Interfaz HTTP
-      - "7687:7687" # Protocolo Bolt
+      - "8001:8001"
+    command: uvicorn reports.api:app --host 0.0.0.0 --port 8001 --reload
     volumes:
-      - neo4j_data:/data
-    restart: unless-stopped
+      - ./backend:/app
+    networks:
+      - xdr-network
+
+  # Dashboard (Frontend Web para Desarrollo)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: xdr-dashboard
+    ports:
+      - "3000:3000"
+    networks:
+      - xdr-network
+
+  # Base de Datos Relacional y Series de Tiempo (TimescaleDB)
+  db_xdr:
+    build: ./database/timescaledb
+    container_name: xdr_postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: usuario
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tu_db_xdr
+    volumes:
+      - pgdata_xdr:/var/lib/postgresql/data
+    networks:
+      - xdr-network
+
+  # Caché en Memoria (Redis)
+  redis:
+    image: redis:alpine
+    container_name: xdr-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - xdr-network
+
+  # Visor Web para PostgreSQL
+  pgadmin_xdr:
+    image: dpage/pgadmin4
+    container_name: xdr_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@xdr.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db_xdr
+    networks:
+      - xdr-network
+
+  # Base de Datos de Grafos
+  neo4j:
+    build: ./database/neo4j
+    container_name: xdr-db-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/xdr_password
+    networks:
+      - xdr-network
+
+networks:
+  xdr-network:
+    driver: bridge
 
 volumes:
-  timescaledb_data:
-  neo4j_data:
+  pgdata_xdr:

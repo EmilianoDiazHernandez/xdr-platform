@@ -1,2 +1,5 @@
 sudo service redis-server start
 uvicorn fastAPI3:app --reload
+# Ejemplo si la IP que salió fue 172.25.160.1
+API_URL = "http://172.25.160.1:8000/api/v1/analyze-network"
+10.255.255.254
