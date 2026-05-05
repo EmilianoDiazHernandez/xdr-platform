@@ -72,7 +72,7 @@ CREATE TABLE reglas_deteccion (
 CREATE TABLE flujos_trafico (
     time TIMESTAMPTZ NOT NULL,
     id_flujo UUID NOT NULL DEFAULT uuid_generate_v4(),
-    zeek_uid VARCHAR(50) NOT NULL,
+    zeek_uid TEXT NOT NULL,
     
     -- Identidad en la Topología
     id_origen UUID NOT NULL REFERENCES dispositivos(id_dispositivo),
@@ -114,23 +114,22 @@ CREATE TABLE alertas_xdr (
     time TIMESTAMPTZ NOT NULL,
     id_alerta BIGSERIAL NOT NULL, -- Compatible numéricamente con el Frontend
     
-    -- Referencias ACID a Flujos y Dispositivos
+    -- Referencias a Flujos y Dispositivos
     id_flujo_relacionado UUID,
-    time_flujo_relacionado TIMESTAMPTZ, -- Necesario para FK hacia Hypertable
+    time_flujo_relacionado TIMESTAMPTZ, -- Relación lógica hacia flujos_trafico (sin FK explícita para evitar error de TimescaleDB)
     id_dispositivo_afectado UUID NOT NULL REFERENCES dispositivos(id_dispositivo),
     
     id_severidad INT NOT NULL REFERENCES cat_severidad(id_severidad),
     id_estado INT NOT NULL REFERENCES cat_estados_alerta(id_estado),
     id_regla UUID REFERENCES reglas_deteccion(id_regla),
     
-    tipo_deteccion VARCHAR(50) NOT NULL CHECK (tipo_deteccion IN ('Regla Estática', 'Machine Learning')),
-    tipo_ataque VARCHAR(50) NOT NULL,
+    tipo_deteccion TEXT NOT NULL CHECK (tipo_deteccion IN ('Regla Estática', 'Machine Learning')),
+    tipo_ataque TEXT NOT NULL,
     descripcion TEXT NOT NULL,
     
     fecha_actualizacion TIMESTAMPTZ DEFAULT NOW(),
     
-    PRIMARY KEY (time, id_alerta),
-    FOREIGN KEY (time_flujo_relacionado, id_flujo_relacionado) REFERENCES flujos_trafico (time, id_flujo)
+    PRIMARY KEY (time, id_alerta)
 );
 
 SELECT create_hypertable('alertas_xdr', 'time');

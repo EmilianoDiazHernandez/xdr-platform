@@ -1,5 +1,5 @@
 services:
-  # Motor de ML (Análisis de Tráfico)
+  # Motor de ML (Análisis de Tráfico y EDR)
   api-ml:
     build: 
       context: ./backend
@@ -7,9 +7,20 @@ services:
     container_name: xdr-api-ml
     ports:
       - "8000:8000"
-    command: uvicorn ml.fastAPI:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend/src:/app/src
+      - ./backend/models_data:/app/models_data
+    environment:
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_USER=xdr_user
+      - DB_PASSWORD=xdr_password
+      - DB_NAME=xdr_db
+      - REDIS_HOST=redis
+    depends_on:
+      - timescaledb
+      - redis
     networks:
       - xdr-network
 
@@ -21,7 +32,7 @@ services:
     container_name: xdr-api-reports
     ports:
       - "8001:8001"
-    command: uvicorn reports.api:app --host 0.0.0.0 --port 8001 --reload
+    command: uvicorn src.reports.api:app --host 0.0.0.0 --port 8001 --reload
     volumes:
       - ./backend/src:/app/src
     networks:
@@ -37,7 +48,16 @@ services:
     networks:
       - xdr-network
 
-  # Bases de Datos (Ya existentes en estructura)
+  # Redis para correlación XDR
+  redis:
+    image: redis:alpine
+    container_name: xdr-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - xdr-network
+
+  # Bases de Datos (PostgreSQL/TimescaleDB)
   timescaledb:
     build: ./database/timescaledb
     container_name: xdr-db-timescale

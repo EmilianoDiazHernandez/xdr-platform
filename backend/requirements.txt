@@ -11,3 +11,7 @@ weasyprint
 matplotlib
 seaborn
 python-multipart
+slowapi
+asyncpg
+redis
+lightgbm

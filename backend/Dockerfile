@@ -22,15 +22,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiamos solo el código fuente
+# Copiamos src y models_data
 COPY src/ /app/src/
+COPY models_data/ /app/models_data/
 
-# Directorio de salida para reportes
-RUN mkdir -p /app/src/reports/output
-
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app
 
 EXPOSE 8000
 EXPOSE 8001
 
-CMD ["uvicorn", "ml.fastAPI:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
