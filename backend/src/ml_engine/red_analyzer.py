@@ -57,7 +57,7 @@ def analyze_network(log):
         val = str(v).strip().lower()
         cat_dict[k] = "0" if val == "-" else val
 
-    puerto_destino = getattr(log, 'id_resp_p', 0) 
+    puerto_destino = getattr(log, 'resp_p', 0) 
     cat_dict['port_range'] = get_port_range(int(puerto_destino))
 
     df_cat = pd.DataFrame([cat_dict])[features_cat_red]

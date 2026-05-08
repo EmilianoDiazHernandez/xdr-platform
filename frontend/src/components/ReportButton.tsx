@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, Loader, CheckCircle, XCircle } from "lucide-react";
 import { EstadoReporte } from "../types";
+import { REPORT_BASE_URL } from "../api/config";
 
 export function ReportButton() {
   const [estado, setEstado] = useState<EstadoReporte>("listo");
@@ -10,10 +11,24 @@ export function ReportButton() {
     if (estado === "generando") return;
     setEstado("generando");
     try {
-      // C1: simulado — C2: llamada real a FastAPI localhost:8000/api/v1/reports/generar
-      await new Promise(res => setTimeout(res, 2500));
+      const response = await fetch(`${REPORT_BASE_URL}/reports/generate?n_alertas=50`, {
+        method: "POST"
+      });
+
+      if (!response.ok) throw new Error("Error en el servidor");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `XDR-Report-${new Date().getTime()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
       setEstado("exito");
-    } catch {
+    } catch (e) {
+      console.error("Error generando reporte:", e);
       setEstado("error");
     } finally {
       setTimeout(() => setEstado("listo"), 4000);

@@ -4,21 +4,13 @@ import json
 import logging
 from transformer import extract_features
 from client_api import MLClient
-from repository import XDRRepository
 
 # ==========================================
 # CONFIGURACIÓN (Variables de Entorno)
 # ==========================================
 ZEEK_LOG_PATH = os.getenv("ZEEK_LOG_PATH", "conn.log")
-API_URL = os.getenv("API_URL", "http://localhost:8000/api/v1/analyze")
-
-DB_CONFIG = {
-    "host":     os.getenv("DB_HOST", "localhost"),
-    "port":     os.getenv("DB_PORT", "5432"),
-    "dbname":   os.getenv("DB_NAME", "postgres"),
-    "user":     os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASS", "postgres")
-}
+API_URL = os.getenv("API_URL", "http://localhost:8000/api/v1/analyze-network")
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "50"))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -37,12 +29,12 @@ def parse_line(line, headers):
     return None
 
 def main():
-    logging.info(f"Iniciando Colector XDR Modular. Monitoreando: {ZEEK_LOG_PATH}")
+    logging.info(f"Iniciando Colector XDR Batch. Monitoreando: {ZEEK_LOG_PATH} | Batch Size: {BATCH_SIZE}")
     
     # Inicializar componentes
     client = MLClient(API_URL)
-    repo = XDRRepository(DB_CONFIG)
     headers = []
+    batch = []
 
     if not os.path.exists(ZEEK_LOG_PATH):
         open(ZEEK_LOG_PATH, 'w').close()
@@ -50,8 +42,14 @@ def main():
     with open(ZEEK_LOG_PATH, 'r') as f:
         while True:
             line = f.readline()
+            
+            # Si no hay línea, procesar batch pendiente y esperar
             if not line:
-                time.sleep(0.5)
+                if batch:
+                    client.analyze_batch(batch)
+                    logging.info(f"[BATCH_FLUSH] Procesados {len(batch)} logs pendientes.")
+                    batch = []
+                time.sleep(0.1)
                 continue
 
             if line.startswith('#'):
@@ -62,27 +60,18 @@ def main():
             entry = parse_line(line, headers)
             if not entry: continue
 
-            # 1. Transformación (transformer.py)
             features = extract_features(entry)
             if not features: continue
 
-            # 2. Análisis (client_api.py)
-            orig_ip = entry.get("id.orig_h")
-            resp_ip = entry.get("id.resp_h")
-            resp_p = int(entry.get("id.resp_p", 0))
-            ml_result = client.analyze(orig_ip, resp_p, features)
+            # Acumular en el batch
+            batch.append((entry, features))
 
-            # 3. Persistencia (repository.py)
-            proto_map = {'tcp': 6, 'udp': 17, 'icmp': 1}
-            proto_num = proto_map.get(entry.get("proto", "tcp"), 0)
-            
-            repo.save_flow_and_alert(
-                entry, features, ml_result, 
-                orig_ip, resp_ip, int(entry.get("id.orig_p", 0)), resp_p, proto_num
-            )
-            
-            status = "ANOMALÍA" if ml_result.get("es_anomalia") else "OK"
-            logging.info(f"[{status}] {orig_ip} -> {resp_ip}:{resp_p} | Prob: {ml_result.get('detalles_rf', {}).get('probabilidad', 0):.4f}")
+            # Si el batch está lleno, enviar
+            if len(batch) >= BATCH_SIZE:
+                results = client.analyze_batch(batch)
+                anomalies = sum(1 for r in results if r.get("accion") != "PERMITIR")
+                logging.info(f"[BATCH_SEND] Enviados {len(batch)} logs | Anomalías detectadas: {anomalies}")
+                batch = []
 
 if __name__ == "__main__":
     try:

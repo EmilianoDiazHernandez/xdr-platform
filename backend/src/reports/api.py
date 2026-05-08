@@ -1,14 +1,22 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from .generar_reporte import generar_reporte_pdf
+from src.infrastructure.database import Database
+from .generar_reporte import generar_reporte_pdf_async
 import os
 
-app = FastAPI(title="XDR Report Service")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await Database.connect()
+    yield
+    await Database.close()
+
+app = FastAPI(title="XDR Report Service", lifespan=lifespan)
 
 @app.post("/api/v1/reports/generate")
 async def generate_report(n_alertas: int = 100):
     try:
-        pdf_path = generar_reporte_pdf(n_alertas)
+        pdf_path = await generar_reporte_pdf_async(n_alertas)
         if os.path.exists(pdf_path):
             return FileResponse(
                 path=pdf_path, 

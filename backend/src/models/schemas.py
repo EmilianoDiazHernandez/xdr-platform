@@ -1,23 +1,48 @@
 from pydantic import BaseModel, ConfigDict
 
 class ZeekLog(BaseModel):
-    orig_ip: str
-    resp_ip: str = "0.0.0.0"
+    # Metadatos de Zeek
+    ts: float = 0.0
+    uid: str = "unknown"
+    
+    # Identidad de Red (Campos originales de Zeek)
+    orig_ip: str         # id.orig_h
+    resp_ip: str         # id.resp_h
+    orig_p: int = 0      # id.orig_p
+    resp_p: int = 0      # id.resp_p
+    proto: str = "tcp"
+    service: str = "-"
+    conn_state: str = "-"
+    history: str = "-"
+    
+    # Métricas de Tráfico (Raw)
     duration: float = 0.0
     orig_bytes: float = 0.0
     resp_bytes: float = 0.0
     missed_bytes: float = 0.0
     orig_pkts: float = 0.0
-    orig_ip_bytes: float = 0.0
     resp_pkts: float = 0.0
+    orig_ip_bytes: float = 0.0
     resp_ip_bytes: float = 0.0
-    id_resp_p: int = 0
-    proto: str = "-"
-    conn_state: str = "-"
-    service: str = "-"
     local_orig: str = "F"
     local_resp: str = "F"
-    history: str = "-"
+
+    # CICFlowMeter Features (Calculadas por el sensor o el backend)
+    Flow_Duration: float = 0.0
+    Flow_Bytes_s: float = 0.0
+    Flow_Packets_s: float = 0.0
+    Subflow_Fwd_Bytes: float = 0.0
+    Subflow_Bwd_Bytes: float = 0.0
+    Subflow_Fwd_Packets: float = 0.0
+    act_data_pkt_fwd: float = 0.0
+    Fwd_Header_Length: float = 0.0
+    Bwd_Header_Length: float = 0.0
+    Fwd_Packet_Length_Max: float = 0.0
+    Bwd_Packet_Length_Max: float = 0.0
+    Bwd_Packet_Length_Min: float = 0.0
+    Down_Up_Ratio: float = 0.0
+    Average_Packet_Size: float = 0.0
+
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 class SysmonLog(BaseModel):

@@ -35,6 +35,14 @@ services:
     command: uvicorn src.reports.api:app --host 0.0.0.0 --port 8001 --reload
     volumes:
       - ./backend/src:/app/src
+    environment:
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_USER=xdr_user
+      - DB_PASSWORD=xdr_password
+      - DB_NAME=xdr_db
+    depends_on:
+      - timescaledb
     networks:
       - xdr-network
 
@@ -57,7 +65,35 @@ services:
     networks:
       - xdr-network
 
-  # Bases de Datos (PostgreSQL/TimescaleDB)
+  # Recolector de Red (Sensor Agente)
+  sensor-network-collector:
+    build:
+      context: ./collector
+    container_name: xdr-sensor-red
+    environment:
+      - API_URL=http://api-ml:8000/api/v1/analyze-network
+      - ZEEK_LOG_PATH=/logs/conn.log
+      - BATCH_SIZE=50
+    volumes:
+      - ./collector/logs:/logs
+    depends_on:
+      - api-ml
+    networks:
+      - xdr-network
+
+  # Bases de Datos
+  # auth-db:
+  #   build: ./database/auth-db
+  #   container_name: xdr-db-auth
+  #   ports:
+  #     - "5433:5432"
+  #   environment:
+  #     POSTGRES_DB: auth_db
+  #     POSTGRES_USER: auth_user
+  #     POSTGRES_PASSWORD: auth_password
+  #   networks:
+  #     - xdr-network
+
   timescaledb:
     build: ./database/timescaledb
     container_name: xdr-db-timescale
@@ -70,16 +106,16 @@ services:
     networks:
       - xdr-network
 
-  neo4j:
-    build: ./database/neo4j
-    container_name: xdr-db-neo4j
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    environment:
-      NEO4J_AUTH: neo4j/xdr_password
-    networks:
-      - xdr-network
+  # neo4j:
+  #   build: ./database/neo4j
+  #   container_name: xdr-db-neo4j
+  #   ports:
+  #     - "7474:7474"
+  #     - "7687:7687"
+  #   environment:
+  #     NEO4J_AUTH: neo4j/xdr_password
+  #   networks:
+  #     - xdr-network
 
 networks:
   xdr-network:

@@ -135,7 +135,33 @@ CREATE TABLE alertas_xdr (
 SELECT create_hypertable('alertas_xdr', 'time');
 
 -- ==========================================
--- 05. VISTAS DE INTEGRACIÓN (FRONTEND)
+-- 05. TELEMETRÍA ENDPOINT (EDR / Sysmon)
+-- ==========================================
+
+CREATE TABLE eventos_endpoint (
+    time TIMESTAMPTZ NOT NULL,
+    id_evento UUID DEFAULT uuid_generate_v4(),
+    id_dispositivo UUID NOT NULL REFERENCES dispositivos(id_dispositivo),
+    
+    event_id INT NOT NULL, -- Ej: 1 (Process Creation), 3 (Network Connection)
+    host_name TEXT NOT NULL,
+    proceso TEXT NOT NULL,
+    proceso_padre TEXT,
+    comando TEXT,
+    hashes TEXT,
+    
+    probabilidad_anomalia FLOAT4,
+    es_anomalia BOOLEAN DEFAULT FALSE,
+    cadena_sospechosa_detectada BOOLEAN DEFAULT FALSE,
+
+    -- PK compuesta para TimescaleDB
+    PRIMARY KEY (time, id_evento)
+);
+
+SELECT create_hypertable('eventos_endpoint', 'time');
+
+-- ==========================================
+-- 06. VISTAS DE INTEGRACIÓN (FRONTEND)
 -- ==========================================
 -- Genera exactamente el JSON / Interfaz TS que consume el frontend
 CREATE VIEW vista_alertas_frontend AS

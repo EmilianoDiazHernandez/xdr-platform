@@ -6,25 +6,41 @@ class MLClient:
     def __init__(self, api_url):
         self.api_url = api_url
 
-    def analyze(self, orig_ip, resp_p, features):
-        """Envía las features al modelo y maneja errores de red."""
-        payload = {
-            "orig_ip": orig_ip,
-            "resp_p": resp_p,
-            **features
-        }
+    def analyze_batch(self, batch_data):
+        """Envía un lote de logs al backend XDR para procesamiento masivo."""
+        payload = []
+        for entry, features in batch_data:
+            log_item = {
+                "ts": float(entry.get("ts", 0.0)),
+                "uid": entry.get("uid", "unknown"),
+                "orig_ip": entry.get("id.orig_h"),
+                "resp_ip": entry.get("id.resp_h"),
+                "orig_p": int(entry.get("id.orig_p", 0)),
+                "resp_p": int(entry.get("id.resp_p", 0)),
+                "proto": entry.get("proto", "tcp"),
+                "service": entry.get("service", "-"),
+                "conn_state": entry.get("conn_state", "-"),
+                "history": entry.get("history", "-"),
+                "duration": float(entry.get("duration", 0.0) if entry.get("duration", "-") != "-" else 0.0),
+                "orig_bytes": float(entry.get("orig_bytes", 0.0) if entry.get("orig_bytes", "-") != "-" else 0.0),
+                "resp_bytes": float(entry.get("resp_bytes", 0.0) if entry.get("resp_bytes", "-") != "-" else 0.0),
+                "orig_pkts": float(entry.get("orig_pkts", 0.0) if entry.get("orig_pkts", "-") != "-" else 0.0),
+                "resp_pkts": float(entry.get("resp_pkts", 0.0) if entry.get("resp_pkts", "-") != "-" else 0.0),
+                "orig_ip_bytes": float(entry.get("orig_ip_bytes", 0.0) if entry.get("orig_ip_bytes", "-") != "-" else 0.0),
+                "resp_ip_bytes": float(entry.get("resp_ip_bytes", 0.0) if entry.get("resp_ip_bytes", "-") != "-" else 0.0),
+                "local_orig": entry.get("local_orig", "F"),
+                "local_resp": entry.get("local_resp", "F"),
+                **features
+            }
+            payload.append(log_item)
+            
         try:
-            response = requests.post(self.api_url, json=payload, timeout=2.0)
+            response = requests.post(self.api_url, json=payload, timeout=10.0)
             if response.status_code == 200:
-                return response.json().get("analisis", {})
+                return response.json().get("results", [])
             else:
-                logging.error(f"API Error (HTTP {response.status_code}): {response.text}")
+                logging.error(f"Batch API Error (HTTP {response.status_code}): {response.text}")
         except Exception as e:
-            logging.error(f"API ML inaccesible o timeout en client_api.py: {e}")
+            logging.error(f"API ML inaccesible durante batch en client_api.py: {e}")
         
-        # Fallback seguro en caso de error de red
-        return {
-            "es_anomalia": False,
-            "tipo_detectado": "ERROR_CONEXION",
-            "detalles_rf": {"probabilidad": 0.0}
-        }
+        return []
