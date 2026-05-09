@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+pandas
+numpy
+scipy
+joblib
+scikit-learn
+jinja2
+weasyprint
+matplotlib
+seaborn
+python-multipart
+slowapi
+asyncpg
+redis
+lightgbm

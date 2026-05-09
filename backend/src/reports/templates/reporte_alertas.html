@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>{% include 'estilos.css' %}</style>
+</head>
+<body>
+<div class="pagina">
+
+  <!-- ENCABEZADO -->
+  <div class="encabezado">
+    <div>
+      <div class="badge">TT No. 2026-B139 — IPN / ESCOM</div>
+      <h1>{{ titulo }}</h1>
+      <p style="opacity:0.7; font-size:12px; margin-top:6px;">
+        Plataforma XDR
+      </p>
+    </div>
+    <div class="meta">
+      <div>Generado el {{ fecha }}</div>
+      <div>Período: últimas 24 horas</div>
+      <div style="margin-top:6px; font-size:10px; opacity:0.6;">
+        Módulo de Reportes
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi kpi-total">
+      <div class="kpi-icono">🛡️</div>
+      <div>
+        <div class="kpi-valor">{{ metricas.total_alertas }}</div>
+        <div class="kpi-label">Total alertas</div>
+      </div>
+    </div>
+    <div class="kpi kpi-critica">
+      <div class="kpi-icono">🚨</div>
+      <div>
+        <div class="kpi-valor">{{ metricas.alertas_criticas }}</div>
+        <div class="kpi-label">Alertas críticas (Alta)</div>
+      </div>
+    </div>
+    <div class="kpi kpi-media">
+      <div class="kpi-icono">⚠️</div>
+      <div>
+        <div class="kpi-valor">{{ metricas.alertas_medias }}</div>
+        <div class="kpi-label">Alertas medias</div>
+      </div>
+    </div>
+    <div class="kpi kpi-baja">
+      <div class="kpi-icono">✅</div>
+      <div>
+        <div class="kpi-valor">{{ metricas.alertas_bajas }}</div>
+        <div class="kpi-label">Alertas bajas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA DE ALERTAS (orden ascendente 1→100) -->
+  <div class="seccion">
+    <div class="seccion-titulo">Registro de alertas</div>
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th style="width:110px">IP Origen</th>
+          <th style="width:140px">Timestamp</th>
+          <th style="width:80px">Severidad</th>
+          <th>Descripción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in alertas %}
+        <tr class="fila-{{ a.severidad | lower }}">
+          <td>{{ a.id_alerta }}</td>
+          <td><code style="font-size:11px; color:#475569;">{{ a.ip_origen }}</code></td>
+          <td style="font-size:11px; color:#64748b;">{{ a.timestamp }}</td>
+          <td>
+            <span class="badge-sev sev-{{ a.severidad | lower }}">
+              {{ a.severidad }}
+            </span>
+          </td>
+          <td style="color:#334155;">{{ a.descripcion }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- GRÁFICA 1: ATAQUES VS TIEMPO -->
+  <div class="seccion-grafica">
+    <div class="seccion-titulo">Ataques vs tiempo — últimas 12 horas</div>
+    <div class="grafica">
+      <img src="data:image/png;base64,{{ grafica_tiempo_b64 }}" alt="Ataques vs tiempo" />
+    </div>
+  </div>
+
+  <!-- GRÁFICA 2: DISTRIBUCIÓN POR SEVERIDAD -->
+  <div class="seccion-grafica">
+    <div class="seccion-titulo">Distribución por severidad</div>
+    <div class="grafica">
+      <img src="data:image/png;base64,{{ grafica_barras_b64 }}" alt="Distribución por severidad" />
+    </div>
+  </div>
+
+  <!-- PIE DE PÁGINA SIMPLE (dentro del flujo, no fixed) -->
+  <div style="text-align:center; font-size:10px; color:#94a3b8; padding:16px 0 8px 0; border-top:1px solid #e2e8f0; margin-top:8px;">
+    Plataforma XDR — TT No. 2026-B139 &nbsp;|&nbsp; {{ fecha }} &nbsp;|&nbsp; Generado automáticamente
+  </div>
+
+</div>
+</body>
+</html>
