@@ -46,6 +46,28 @@ services:
     networks:
       - xdr-network
 
+  # Motor de Topología (Nuevo)
+  api-topology:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xdr-api-topology
+    ports:
+      - "8002:8002"
+    command: uvicorn src.topology.api:app --host 0.0.0.0 --port 8002 --reload
+    volumes:
+      - ./backend/src:/app/src
+    environment:
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_USER=xdr_user
+      - DB_PASSWORD=xdr_password
+      - DB_NAME=xdr_db
+    depends_on:
+      - timescaledb
+    networks:
+      - xdr-network
+
   # Dashboard (Frontend Web para Desarrollo)
   frontend:
     build:

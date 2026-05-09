@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header }  from "./components/Header";
 import { Home }    from "./pages/Home";
+import { Topology } from "./pages/Topology";
 
 const TITULOS: Record<string, string> = {
   inicio:        "Inicio",
@@ -66,6 +67,7 @@ export default function App() {
 
   const renderPagina = () => {
     if (paginaActiva === "inicio") return <Home />;
+    if (paginaActiva === "topologia") return <Topology />;
     return <Placeholder titulo={TITULOS[paginaActiva]} />;
   };
 

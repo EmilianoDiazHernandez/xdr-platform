@@ -7,6 +7,7 @@ from src.infrastructure.database import Database
 from .metricas import calcular_metricas
 from .grafica import generar_grafica_barras_base64, generar_grafica_tiempo_base64
 import pandas as pd
+import io
 
 async def obtener_datos_reales(n_alertas: int = 100):
     pool = Database.get_pool()
@@ -23,7 +24,6 @@ async def obtener_datos_reales(n_alertas: int = 100):
         return df
 
 async def generar_reporte_pdf_async(n_alertas: int = 100) -> str:
-    print("Obteniendo alertas reales de la base de datos...")
     df = await obtener_datos_reales(n_alertas)
     
     if df.empty:
@@ -56,14 +56,11 @@ async def generar_reporte_pdf_async(n_alertas: int = 100) -> str:
         grafica_barras_b64 = grafica_barras_b64,
     )
 
-    nombre = f"XDR-REPORT-{datetime.now().strftime('%Y%m%d-%H%M')}.pdf"
-    ruta   = base_path / "output" / nombre
-    ruta.parent.mkdir(exist_ok=True)
-
     print("Generando PDF...")
-    HTML(string=html_str, base_url=str(templates_path)).write_pdf(str(ruta))
-    print(f"✓ Reporte generado: {ruta}")
-    return str(ruta)
+    pdf_bytes = HTML(string=html_str, base_url=str(templates_path)).write_pdf()
+    
+    nombre = f"XDR-REPORT-{datetime.now().strftime('%Y%m%d-%H%M')}.pdf"
+    return pdf_bytes, nombre
 
 def generar_reporte_pdf(n_alertas: int = 100) -> str:
     return asyncio.run(generar_reporte_pdf_async(n_alertas))

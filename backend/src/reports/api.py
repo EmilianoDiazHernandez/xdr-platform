@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
 from src.infrastructure.database import Database
 from .generar_reporte import generar_reporte_pdf_async
 import os
@@ -13,17 +13,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="XDR Report Service", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
+)
+
 @app.post("/api/v1/reports/generate")
 async def generate_report(n_alertas: int = 100):
     try:
-        pdf_path = await generar_reporte_pdf_async(n_alertas)
-        if os.path.exists(pdf_path):
-            return FileResponse(
-                path=pdf_path, 
-                filename=os.path.basename(pdf_path),
-                media_type='application/pdf'
-            )
-        raise HTTPException(status_code=500, detail="Error al localizar el archivo PDF generado")
+        pdf_bytes, filename = await generar_reporte_pdf_async(n_alertas)
+        
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
