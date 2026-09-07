@@ -82,3 +82,10 @@ class EmailLog(BaseModel):
     score_heuristico: int = 0
     url_larga: int = 0
     subdominios_altos: int = 0
+
+class AttackFlowStep(BaseModel):
+    step_order: int
+    timestamp: str
+    vector: str
+    anomaly_score: float
+    description: str

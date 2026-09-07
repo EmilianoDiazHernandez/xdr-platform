@@ -69,3 +69,53 @@ async def get_topology():
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "topology"}
+@app.get("/api/v1/topology/events")
+async def get_events():
+    pool = Database.get_pool()
+    if not pool:
+        raise HTTPException(status_code=500, detail="Base de datos no conectada")
+    
+    try:
+        async with pool.acquire() as conn:
+            eventos_rows = await conn.fetch("""
+                SELECT 
+                    id_evento_correlacionado::text as id,
+                    id_dispositivo_origen::text as target_node,
+                    fecha_inicio::text as start_time,
+                    fecha_actualizacion::text as last_update,
+                    estado as status,
+                    severidad_global as severity,
+                    probabilidad_global as probability,
+                    attack_flow
+                FROM eventos_correlacionados
+                WHERE estado = 'Abierto'
+                ORDER BY fecha_actualizacion DESC
+            """)
+            
+            import json
+            events = []
+            for row in eventos_rows:
+                event_dict = dict(row)
+                if isinstance(event_dict['attack_flow'], str):
+                    event_dict['attack_flow'] = json.loads(event_dict['attack_flow'])
+                events.append(event_dict)
+            
+            return events
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/v1/topology/node_alerts/{device_id}")
+async def get_node_alerts(device_id: str):
+    pool = Database.get_pool()
+    if not pool:
+        raise HTTPException(status_code=500, detail="Base de datos no conectada")
+    try:
+        async with pool.acquire() as conn:
+            alertas = await conn.fetch("""
+                SELECT id_alerta::text, time::text, id_severidad, tipo_deteccion, tipo_ataque, descripcion 
+                FROM alertas_xdr 
+                WHERE id_dispositivo_afectado = $1::uuid 
+                ORDER BY time DESC LIMIT 20
+            """, device_id)
+            return [dict(a) for a in alertas]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

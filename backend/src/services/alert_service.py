@@ -5,6 +5,7 @@ from src.infrastructure.database import Database
 from src.infrastructure.redis_client import RedisClient
 from src.core.logger import logger
 from src.core.config import TTL_RED, TTL_EDR, TTL_EMAIL
+from src.services.correlation_service import CorrelationService
 
 class AlertService:
     @staticmethod
@@ -80,15 +81,20 @@ class AlertService:
                         severidad = await conn.fetchval("SELECT id_severidad FROM cat_severidad WHERE nombre = $1", severidad_nombre)
                         id_severidad = severidad if severidad else 2
                         
+                        id_evento = await CorrelationService.correlate_and_get_event(
+                            conn, id_origen, id_severidad, "Network", f"Anomalía en tráfico hacia {log.resp_ip}", ts, prob_fusion
+                        )
+                        
                         await conn.execute(
                             """
                             INSERT INTO alertas_xdr 
                             (time, id_flujo_relacionado, time_flujo_relacionado, id_dispositivo_afectado, 
-                             id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion)
-                            VALUES (to_timestamp($1), $2, to_timestamp($3), $4, $5, 1, 'Machine Learning', $6, $7)
+                             id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado)
+                            VALUES (to_timestamp($1), $2, to_timestamp($3), $4, $5, 1, 'Machine Learning', $6, $7, $8)
                             """,
                             ts, flujo_id, ts, id_origen, id_severidad, tipo_ataque, 
-                            f"Anomalía detectada. Prob RED: {prob_red:.4f}. Fusión: {prob_fusion:.4f}. Acción: {accion}"
+                            f"Anomalía detectada. Prob RED: {prob_red:.4f}. Fusión: {prob_fusion:.4f}. Acción: {accion}",
+                            id_evento
                         )
         except Exception as e:
             logger.error(f"[DB_ERROR] Fallo persistencia total: {e}")
@@ -128,14 +134,19 @@ class AlertService:
                         severidad = await conn.fetchval("SELECT id_severidad FROM cat_severidad WHERE nombre = $1", severidad_nombre)
                         id_severidad = severidad if severidad else 2
                         
+                        id_evento = await CorrelationService.correlate_and_get_event(
+                            conn, id_dispositivo, id_severidad, "Endpoint", f"Ejecución anómala: {log.proceso}", ts, prob_fusion
+                        )
+
                         await conn.execute(
                             """
                             INSERT INTO alertas_xdr 
-                            (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion)
-                            VALUES (to_timestamp($1), $2, $3, 1, 'Machine Learning', $4, $5)
+                            (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado)
+                            VALUES (to_timestamp($1), $2, $3, 1, 'Machine Learning', $4, $5, $6)
                             """,
                             ts, id_dispositivo, id_severidad, tipo_ataque, 
-                            f"Proceso anómalo: {log.proceso}. CMD: {log.cmd}. Prob EDR: {prob_edr:.4f}. Fusión: {prob_fusion:.4f}. Acción: {accion}"
+                            f"Proceso anómalo: {log.proceso}. CMD: {log.cmd}. Prob EDR: {prob_edr:.4f}. Fusión: {prob_fusion:.4f}. Acción: {accion}",
+                            id_evento
                         )
         except Exception as e:
             logger.error(f"[DB_ERROR] Fallo persistencia EDR: {e}")
@@ -148,24 +159,20 @@ class AlertService:
         
         try:
             async with pool.acquire() as conn:
-                dispositivo = await conn.fetchrow("""
-                    SELECT d.id_dispositivo 
-                    FROM dispositivos d
-                    JOIN dispositivo_ips di ON d.id_dispositivo = di.id_dispositivo
-                    WHERE di.direccion_ip = $1::inet AND di.activa = TRUE
-                    LIMIT 1
-                """, ip_afectada)
-                
-                id_dispositivo = dispositivo['id_dispositivo'] if dispositivo else uuid.UUID('00000000-0000-0000-0000-000000000000')
+                id_dispositivo = await AlertService.get_or_create_device(conn, ip_afectada)
 
                 severidad = await conn.fetchval("SELECT id_severidad FROM cat_severidad WHERE nombre = $1", severidad_nombre)
                 id_severidad = severidad if severidad else 2
 
+                id_evento = await CorrelationService.correlate_and_get_event(
+                            conn, id_dispositivo, id_severidad, "Email", descripcion, time.time(), 0.9
+                        )
+
                 await conn.execute("""
                     INSERT INTO alertas_xdr 
-                    (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion)
-                    VALUES (NOW(), $1, $2, 1, 'Machine Learning', $3, $4)
-                """, id_dispositivo, id_severidad, tipo_capa, f"Acción tomada: {accion} | Detalles: {descripcion}")
+                    (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado)
+                    VALUES (NOW(), $1, $2, 1, 'Machine Learning', $3, $4, $5)
+                """, id_dispositivo, id_severidad, tipo_capa, f"Acción tomada: {accion} | Detalles: {descripcion}", id_evento)
                 
         except Exception as e:
             logger.error(f"[DB_ERROR] Fallo al guardar alerta en DB: {e}")

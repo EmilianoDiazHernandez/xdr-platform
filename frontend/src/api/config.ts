@@ -19,3 +19,14 @@ export async function fetchTopology() {
   if (!r.ok) throw new Error("Error al obtener topología");
   return r.json();
 }
+
+export async function fetchEvents() {
+  const r = await fetch(`${TOPOLOGY_BASE_URL}/topology/events`);
+  if (!r.ok) throw new Error("Error al obtener eventos");
+  return r.json();
+}
+export async function fetchNodeAlerts(deviceId: string) {
+  const response = await fetch(`${TOPOLOGY_BASE_URL}/topology/node_alerts/${deviceId}`);
+  if (!response.ok) throw new Error("Error fetching node alerts");
+  return response.json();
+}
