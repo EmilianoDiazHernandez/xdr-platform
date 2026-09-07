@@ -1,11 +1,12 @@
 export type NivelSeveridad = "Alta" | "Media" | "Baja";
 
 export interface Alerta {
-  id:          number;
+  id:          number | string;
   ip_origen:   string;
   timestamp:   string;
   severidad:   NivelSeveridad;
   descripcion: string;
+  isGeneralEvent?: boolean;
 }
 
 export interface EstadoServicio {
@@ -40,4 +41,23 @@ export interface TopologyData {
     total_nodes: number;
     total_edges: number;
   };
+}
+
+export interface AttackFlowStep {
+  layer: string;
+  description: string;
+  severidad: number;
+  timestamp: string;
+  probabilidad?: number;
+}
+
+export interface CorrelatedEvent {
+  id: string;
+  target_node: string;
+  start_time: string;
+  last_update: string;
+  status: string;
+  severity: number;
+  probability: number;
+  attack_flow: AttackFlowStep[];
 }

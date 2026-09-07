@@ -4,6 +4,7 @@ from src.core.logger import logger
 from src.infrastructure.database import Database
 from src.infrastructure.redis_client import RedisClient
 from src.ml_engine.model_loader import ModelLoader
+from src.services.event_closer_service import EventCloserService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,7 +17,13 @@ async def lifespan(app: FastAPI):
     import asyncio
     await asyncio.to_thread(ModelLoader.load_all)
     
+    # Start background task to close inactive correlation events
+    closer_task = asyncio.create_task(EventCloserService.run_closer_task())
+    
     yield
+    
+    # Cancel the background task
+    closer_task.cancel()
     
     await RedisClient.close()
     await Database.close()

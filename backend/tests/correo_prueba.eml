@@ -1,0 +1,30 @@
+From: "Soporte Tecnico" <admin@paypa1-update.com>
+To: victima@empresa.com
+Subject: URGENT: Verify your account immediately
+Date: Fri, 09 May 2026 18:30:00 -0600
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="boundary-example"
+Reply-To: hacker@tk.xyz
+
+--boundary-example
+Content-Type: text/plain; charset="utf-8"
+
+Dear customer,
+
+Your account will be suspended. Please verify your login at http://bit.ly/xyz123
+
+Thanks,
+Support Team
+
+--boundary-example
+Content-Type: text/html; charset="utf-8"
+
+<html>
+<body>
+<p>Dear customer,</p>
+<p>Your account will be <b>suspended</b>.</p>
+<p>Please <a href="http://192.168.1.100/login.exe">click here</a> to verify your login and password.</p>
+<div style="display:none">hidden text to bypass filters</div>
+</body>
+</html>
+--boundary-example--

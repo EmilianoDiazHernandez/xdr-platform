@@ -99,13 +99,8 @@ while True:
                 cmd_str = str(payload['cmd']).lower()
                 proceso_lower = payload["proceso"].lower()
                 
-                # Exclusiones de tu máquina local
-                exclusiones = [
-                    "svchost.exe", "docker.exe", "code.exe", "git.exe",
-                    "oh-my-posh.exe", "securityhealthhost.exe", "conhost.exe"
-                ]
-
-                if any(excluido in proceso_lower for excluido in exclusiones) or "envio_sysmon.py" in cmd_str:
+                # Solo procesar winword.exe
+                if "winword.exe" not in proceso_lower:
                     continue
 
                 try:

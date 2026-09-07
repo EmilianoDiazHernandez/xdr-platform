@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { TopologyNode, TopologyEdge } from "../types";
-import { Server, Laptop, Router, Cpu, ShieldAlert } from "lucide-react";
+import { TopologyNode, TopologyEdge, CorrelatedEvent } from "../types";
+import { Server, Laptop, Router, Cpu, ShieldAlert, Crosshair } from "lucide-react";
 
 interface NodeWithPos extends TopologyNode {
   x: number;
@@ -14,9 +14,10 @@ interface NetworkGraphProps {
   edges: TopologyEdge[];
   onSelectNode: (node: TopologyNode) => void;
   selectedNodeId?: string;
+  activeEvent?: CorrelatedEvent | null;
 }
 
-export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: NetworkGraphProps) {
+export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId, activeEvent }: NetworkGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphNodes, setGraphNodes] = useState<NodeWithPos[]>([]);
   
@@ -130,6 +131,12 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
           const s = graphNodes.find(n => n.id === edge.source);
           const t = graphNodes.find(n => n.id === edge.target);
           if (!s || !t) return null;
+          
+          let isDimmed = false;
+          if (activeEvent) {
+            isDimmed = edge.source !== activeEvent.target_node && edge.target !== activeEvent.target_node;
+          }
+
           return (
             <line
               key={i}
@@ -137,6 +144,8 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
               x2={t.x} y2={t.y}
               stroke={edge.risk > 0.5 ? "rgba(239, 68, 68, 0.4)" : "rgba(124, 58, 237, 0.2)"}
               strokeWidth={Math.min(4, 1 + edge.weight / 10)}
+              opacity={isDimmed ? 0.1 : 1}
+              style={{ transition: "opacity 0.3s" }}
             />
           );
         })}
@@ -145,6 +154,13 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
       {/* Nodos */}
       {graphNodes.map(node => {
         const isSelected = node.id === selectedNodeId;
+        const isEventTarget = activeEvent?.target_node === node.id;
+        
+        let isDimmed = false;
+        if (activeEvent) {
+          isDimmed = !isEventTarget && !edges.some(e => (e.source === activeEvent.target_node && e.target === node.id) || (e.target === activeEvent.target_node && e.source === node.id));
+        }
+
         return (
           <div
             key={node.id}
@@ -158,24 +174,30 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
               flexDirection: "column",
               alignItems: "center",
               cursor: "pointer",
-              zIndex: isSelected ? 10 : 1,
-              transition: "transform 0.1s ease-out"
+              zIndex: isSelected || isEventTarget ? 10 : 1,
+              transition: "transform 0.1s ease-out, opacity 0.3s",
+              opacity: isDimmed ? 0.2 : 1
             }}
           >
             <div style={{
               width: "40px",
               height: "40px",
               borderRadius: "50%",
-              background: isSelected ? "#7c3aed" : "var(--bg3)",
-              border: `2px solid ${node.critical ? "#ef4444" : isSelected ? "#c4b5fd" : "var(--border)"}`,
+              background: isSelected ? "#7c3aed" : isEventTarget ? "rgba(239, 68, 68, 0.2)" : "var(--bg3)",
+              border: `2px solid ${isEventTarget ? "#ef4444" : node.critical ? "#ef4444" : isSelected ? "#c4b5fd" : "var(--border)"}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: isSelected ? "0 0 15px rgba(124,58,237,0.5)" : "none",
+              boxShadow: isEventTarget ? "0 0 20px rgba(239, 68, 68, 0.6)" : isSelected ? "0 0 15px rgba(124,58,237,0.5)" : "none",
               transition: "all 0.2s"
             }}>
-              {getIcon(node.type, isSelected ? "#fff" : node.critical ? "#ef4444" : "#3b82f6")}
-              {node.critical && (
+              {getIcon(node.type, isSelected ? "#fff" : isEventTarget ? "#ef4444" : node.critical ? "#ef4444" : "#3b82f6")}
+              {isEventTarget && (
+                <div style={{ position: "absolute", top: -8, right: -8, background: "#ef4444", borderRadius: "50%", padding: "4px", animation: "pulse 2s infinite" }}>
+                  <Crosshair size={12} color="#fff" />
+                </div>
+              )}
+              {!isEventTarget && node.critical && (
                 <div style={{ position: "absolute", top: -2, right: -2, background: "#ef4444", borderRadius: "50%", padding: "2px" }}>
                   <ShieldAlert size={8} color="#fff" />
                 </div>
