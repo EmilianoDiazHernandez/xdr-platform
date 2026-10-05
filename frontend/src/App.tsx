@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Header }  from "./components/Header";
 import { Home }    from "./pages/Home";
 import { Topology } from "./pages/Topology";
+import { Alerts } from "./pages/Alerts";
 
 const TITULOS: Record<string, string> = {
   inicio:        "Inicio",
@@ -64,10 +65,18 @@ function StatusBar() {
 
 export default function App() {
   const [paginaActiva, setPaginaActiva] = useState("inicio");
+  const [eventoSeleccionado, setEventoSeleccionado] = useState<string | null>(null);
+
+  const handleNavegar = (pagina: string, param?: string) => {
+    setPaginaActiva(pagina);
+    if (param) setEventoSeleccionado(param);
+    else setEventoSeleccionado(null);
+  };
 
   const renderPagina = () => {
-    if (paginaActiva === "inicio") return <Home />;
+    if (paginaActiva === "inicio") return <Home onNavegar={handleNavegar} />;
     if (paginaActiva === "topologia") return <Topology />;
+    if (paginaActiva === "alertas") return <Alerts eventoSeleccionado={eventoSeleccionado} />;
     return <Placeholder titulo={TITULOS[paginaActiva]} />;
   };
 
@@ -76,7 +85,7 @@ export default function App() {
       className="flex"
       style={{ height: "100vh", background: "var(--bg)", overflow: "hidden" }}
     >
-      <Sidebar activo={paginaActiva} onNavegar={setPaginaActiva} />
+      <Sidebar activo={paginaActiva} onNavegar={(p) => handleNavegar(p)} />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header titulo={TITULOS[paginaActiva]} />

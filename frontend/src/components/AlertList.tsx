@@ -1,27 +1,27 @@
 import { Alerta } from "../types";
 
 const SEV_COLOR: Record<string, string> = {
-  Alta:  "#ef4444",
+  Alta: "#ef4444",
   Media: "#f59e0b",
-  Baja:  "#10b981",
+  Baja: "#10b981",
 };
 
 const SEV_ROW_BG: Record<string, string> = {
-  Alta:  "rgba(239,68,68,0.08)",
+  Alta: "rgba(239,68,68,0.08)",
   Media: "rgba(245,158,11,0.08)",
-  Baja:  "rgba(16,185,129,0.08)",
+  Baja: "rgba(16,185,129,0.08)",
 };
 
 const SEV_ROW_BORDER: Record<string, string> = {
-  Alta:  "rgba(239,68,68,0.18)",
+  Alta: "rgba(239,68,68,0.18)",
   Media: "rgba(245,158,11,0.18)",
-  Baja:  "rgba(16,185,129,0.18)",
+  Baja: "rgba(16,185,129,0.18)",
 };
 
 const SEV_BADGE_BG: Record<string, string> = {
-  Alta:  "rgba(239,68,68,0.15)",
+  Alta: "rgba(239,68,68,0.15)",
   Media: "rgba(245,158,11,0.15)",
-  Baja:  "rgba(16,185,129,0.15)",
+  Baja: "rgba(16,185,129,0.15)",
 };
 
 function ordenar(alertas: Alerta[]): Alerta[] {
@@ -29,10 +29,10 @@ function ordenar(alertas: Alerta[]): Alerta[] {
     if (a.severidad === "Alta" && b.severidad !== "Alta") return -1;
     if (b.severidad === "Alta" && a.severidad !== "Alta") return 1;
     return b.timestamp.localeCompare(a.timestamp);
-  }).slice(0, 10);
+  });
 }
 
-export function AlertList({ alertas }: { alertas: Alerta[] }) {
+export function AlertList({ alertas, onNavegar }: { alertas: Alerta[], onNavegar?: (pagina: string, param?: string) => void }) {
   const ordenadas = ordenar(alertas);
 
   return (
@@ -58,34 +58,41 @@ export function AlertList({ alertas }: { alertas: Alerta[] }) {
       </div>
 
       {/* Rows */}
-      <div style={{ padding: "8px" }}>
+      <div style={{ padding: "8px", maxHeight: "450px", overflowY: "auto" }} className="custom-scrollbar">
         {ordenadas.map((a) => (
           <div
             key={a.id}
+            onClick={() => {
+              if (a.isGeneralEvent && onNavegar) {
+                onNavegar("alertas", String(a.id));
+              }
+            }}
             className="flex items-center gap-3"
             style={{
               padding: "8px 10px",
               marginBottom: "4px",
               borderRadius: "7px",
-              background: SEV_ROW_BG[a.severidad],
-              border: `1px solid ${SEV_ROW_BORDER[a.severidad]}`,
-              borderLeft: `3px solid ${SEV_COLOR[a.severidad]}`,
-              cursor: "pointer",
+              background: a.isGeneralEvent ? SEV_ROW_BG[a.severidad] : "rgba(255,255,255,0.02)",
+              border: `1px solid ${a.isGeneralEvent ? SEV_ROW_BORDER[a.severidad] : "rgba(255,255,255,0.05)"}`,
+              borderLeft: `3px solid ${a.isGeneralEvent ? SEV_COLOR[a.severidad] : "#64748b"}`,
+              cursor: a.isGeneralEvent ? "pointer" : "default",
               transition: "opacity 0.12s",
+              opacity: a.isGeneralEvent ? 1 : 0.7,
             }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            onMouseEnter={e => (e.currentTarget.style.opacity = a.isGeneralEvent ? "0.85" : "0.9")}
+            onMouseLeave={e => (e.currentTarget.style.opacity = a.isGeneralEvent ? "1" : "0.7")}
           >
             {/* Info */}
             <div className="flex-1 min-w-0">
               <p style={{
                 fontSize: "11px",
                 fontWeight: 600,
-                color: "#fff",
+                color: a.isGeneralEvent ? "#a78bfa" : "#fff",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}>
+                {a.isGeneralEvent && <span style={{marginRight: "4px"}}>⚠️</span>}
                 {a.descripcion}
               </p>
               <p className="font-mono" style={{ fontSize: "10px", color: "var(--txt3)", marginTop: "2px" }}>
@@ -102,9 +109,9 @@ export function AlertList({ alertas }: { alertas: Alerta[] }) {
                 letterSpacing: "0.6px",
                 padding: "3px 8px",
                 borderRadius: "5px",
-                background: SEV_BADGE_BG[a.severidad],
-                color: SEV_COLOR[a.severidad],
-                border: `1px solid ${SEV_ROW_BORDER[a.severidad]}`,
+                background: a.isGeneralEvent ? SEV_BADGE_BG[a.severidad] : "rgba(255,255,255,0.05)",
+                color: a.isGeneralEvent ? SEV_COLOR[a.severidad] : "var(--txt3)",
+                border: `1px solid ${a.isGeneralEvent ? SEV_ROW_BORDER[a.severidad] : "rgba(255,255,255,0.1)"}`,
                 flexShrink: 0,
               }}
             >

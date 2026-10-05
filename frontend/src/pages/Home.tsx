@@ -4,10 +4,10 @@ import { StatusPanel }  from "../components/StatusPanel";
 import { AlertList }    from "../components/AlertList";
 import { ReportButton } from "../components/ReportButton";
 import { AlertChart }   from "../components/AlertChart";
-import { Alerta, EstadoServicio } from "../types";
-import { fetchAlertas, fetchHealth } from "../api/config";
+import { Alerta, EstadoServicio, CorrelatedEvent } from "../types";
+import { fetchAlertas, fetchHealth, fetchEvents } from "../api/config";
 
-export function Home() {
+export function Home({ onNavegar }: { onNavegar?: (pagina: string, param?: string) => void }) {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [servicios, setServicios] = useState<EstadoServicio[]>([]);
 
@@ -15,7 +15,25 @@ export function Home() {
     async function cargarDatos() {
       try {
         const dataAlertas = await fetchAlertas();
-        setAlertas(dataAlertas);
+        
+        let generalEventAlerts: Alerta[] = [];
+        try {
+          const events: CorrelatedEvent[] = await fetchEvents();
+          generalEventAlerts = events
+            .filter(e => e.status === "Abierto")
+            .map(e => ({
+              id: e.id,
+              ip_origen: e.target_node,
+              timestamp: e.last_update.replace("T", " ").split(".")[0],
+              severidad: e.severity >= 3 ? "Alta" : (e.severity === 2 ? "Media" : "Baja"),
+              descripcion: `[EVENTO GENERAL] Ataque detectado con ${e.attack_flow?.length || 0} paso(s).`,
+              isGeneralEvent: true
+            }));
+        } catch (err) {
+          console.warn("Could not fetch events:", err);
+        }
+        
+        setAlertas([...generalEventAlerts, ...dataAlertas]);
 
         const health = await fetchHealth();
         const servs: EstadoServicio[] = [
@@ -56,7 +74,7 @@ export function Home() {
 
       {/* Alertas + Gráficas lado a lado */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", alignItems: "start" }}>
-        <AlertList alertas={alertas} />
+        <AlertList alertas={alertas} onNavegar={onNavegar} />
         <AlertChart alertas={alertas} />
       </div>
 

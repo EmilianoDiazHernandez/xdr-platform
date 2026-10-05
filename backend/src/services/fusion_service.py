@@ -96,12 +96,15 @@ class FusionService:
         config_edr = ModelLoader.get('edr')['config']
         opt_thr = config_edr.get('umbral', 0.55)
         
-        if cadena_activa or prob_fusion >= 0.85:
+        if cadena_activa or prob_fusion >= 0.85 or prob_edr >= 0.95:
             accion = "AISLAMIENTO_TOTAL_DEL_HOST"
             severidad = "Alta"
-        elif prob_fusion >= opt_thr:
+        elif prob_fusion >= opt_thr or prob_edr >= 0.80:
             accion = "BLOQUEAR_PROCESO"
             severidad = "Media"
+        elif prob_fusion >= 0.65 or prob_edr >= 0.70:
+            accion = "ALERTA"
+            severidad = "Baja"
         else:
             accion = "PERMITIR"
             severidad = "Baja"
