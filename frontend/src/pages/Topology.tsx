@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchTopology } from "../api/config";
+import { fetchTopology, fetchNodeAlerts } from "../api/config";
 import { TopologyData, TopologyNode } from "../types";
 import { ShieldAlert, Activity } from "lucide-react";
 import { NetworkGraph } from "../components/NetworkGraph";
@@ -8,6 +8,15 @@ export function Topology() {
   const [data, setData] = useState<TopologyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<TopologyNode | null>(null);
+  const [nodeAlerts, setNodeAlerts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (selectedNode) {
+      fetchNodeAlerts(selectedNode.id).then(setNodeAlerts).catch(console.error);
+    } else {
+      setNodeAlerts([]);
+    }
+  }, [selectedNode]);
 
   useEffect(() => {
     async function load() {
@@ -144,6 +153,42 @@ export function Topology() {
               ) : (
                 <p style={{ fontSize: "12px", color: "var(--txt3)", textAlign: "center", padding: "20px 0" }}>
                   -
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Node Alerts List */}
+          <div style={{ 
+            background: "var(--bg3)", 
+            borderRadius: "12px", 
+            border: "1px solid var(--border)",
+            padding: "20px",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0
+          }}>
+            <h3 style={{ fontSize: "14px", fontWeight: 800, color: "#fff", marginBottom: "16px" }}>Alertas del Activo</h3>
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }} className="pr-2">
+              {selectedNode ? (
+                nodeAlerts.length === 0 ? (
+                  <p style={{ fontSize: "11px", color: "var(--txt3)", textAlign: "center" }}>No hay alertas para este activo.</p>
+                ) : (
+                  nodeAlerts.map((al, idx) => (
+                    <div key={idx} style={{ padding: "10px", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "8px", background: "rgba(239,68,68,0.05)" }}>
+                      <div className="flex justify-between mb-1">
+                        <span style={{ fontSize: "11px", color: "#fca5a5", fontWeight: 700 }}>{al.tipo_deteccion} - {al.tipo_ataque}</span>
+                        <span style={{ fontSize: "10px", color: "var(--txt3)" }}>Sev {al.id_severidad}</span>
+                      </div>
+                      <p style={{ fontSize: "10px", color: "var(--txt2)" }}>{al.descripcion}</p>
+                      <p style={{ fontSize: "9px", color: "var(--txt3)", marginTop: "4px" }}>{new Date(al.time).toLocaleString()}</p>
+                    </div>
+                  ))
+                )
+              ) : (
+                <p style={{ fontSize: "12px", color: "var(--txt3)", textAlign: "center", padding: "20px 0" }}>
+                  Selecciona un dispositivo
                 </p>
               )}
             </div>
