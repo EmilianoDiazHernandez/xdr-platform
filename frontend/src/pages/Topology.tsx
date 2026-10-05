@@ -21,9 +21,11 @@ export function Topology() {
       }
     }
     load();
+    const interval = setInterval(load, 2000); // Polling cada 2 segundos
+    return () => clearInterval(interval);
   }, []);
 
-  if (loading) return <div className="p-10 text-center color-[var(--txt3)]">Cargando topología...</div>;
+  if (loading && !data) return <div className="p-10 text-center color-[var(--txt3)]">Cargando topología...</div>;
   if (!data) return <div className="p-10 text-center color-[var(--txt3)]">Error al cargar datos.</div>;
 
   return (

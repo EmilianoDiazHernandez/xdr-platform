@@ -20,16 +20,23 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphNodes, setGraphNodes] = useState<NodeWithPos[]>([]);
   
-  // Inicializar posiciones aleatorias
+  // Inicializar posiciones aleatorias, pero mantener las existentes
   useEffect(() => {
-    const initialNodes = nodes.map(n => ({
-      ...n,
-      x: Math.random() * 800,
-      y: Math.random() * 600,
-      vx: 0,
-      vy: 0
-    }));
-    setGraphNodes(initialNodes);
+    setGraphNodes(prev => {
+      const prevMap = new Map(prev.map(p => [p.id, p]));
+      return nodes.map(n => {
+        if (prevMap.has(n.id)) {
+          return { ...prevMap.get(n.id), ...n }; // Merge new properties, keep x, y, vx, vy
+        }
+        return {
+          ...n,
+          x: Math.random() * 800,
+          y: Math.random() * 600,
+          vx: 0,
+          vy: 0
+        };
+      });
+    });
   }, [nodes]);
 
   // Simulación de fuerzas simple (Force-Directed)
@@ -110,6 +117,8 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
     }
   };
 
+  const now = new Date().getTime();
+
   return (
     <div 
       ref={containerRef}
@@ -130,14 +139,39 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
           const s = graphNodes.find(n => n.id === edge.source);
           const t = graphNodes.find(n => n.id === edge.target);
           if (!s || !t) return null;
+          
+          // Tráfico activo: si last_seen fue hace menos de 15 segundos
+          const edgeTime = edge.last_seen ? new Date(edge.last_seen).getTime() : 0;
+          const isActive = (now - edgeTime) < 15000;
+          
           return (
-            <line
-              key={i}
-              x1={s.x} y1={s.y}
-              x2={t.x} y2={t.y}
-              stroke={edge.risk > 0.5 ? "rgba(239, 68, 68, 0.4)" : "rgba(124, 58, 237, 0.2)"}
-              strokeWidth={Math.min(4, 1 + edge.weight / 10)}
-            />
+            <g key={i}>
+              {/* Línea base estática */}
+              <line
+                x1={s.x} y1={s.y}
+                x2={t.x} y2={t.y}
+                stroke={edge.risk > 0.5 ? "rgba(239, 68, 68, 0.4)" : "rgba(124, 58, 237, 0.2)"}
+                strokeWidth={Math.min(6, 1 + edge.weight / 5)}
+              />
+              {/* Animación superpuesta solo si está activa */}
+              {isActive && (
+                <line
+                  x1={s.x} y1={s.y}
+                  x2={t.x} y2={t.y}
+                  stroke={edge.risk > 0.5 ? "rgba(239, 68, 68, 0.9)" : "rgba(56, 189, 248, 0.9)"}
+                  strokeWidth={Math.min(3, 1 + edge.weight / 10)}
+                  strokeDasharray="4 8"
+                >
+                  <animate 
+                    attributeName="stroke-dashoffset" 
+                    from="12" 
+                    to="0" 
+                    dur={edge.risk > 0.5 ? "0.3s" : "1s"} 
+                    repeatCount="indefinite" 
+                  />
+                </line>
+              )}
+            </g>
           );
         })}
       </svg>

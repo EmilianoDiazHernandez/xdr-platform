@@ -1,0 +1,29 @@
+services:
+  emu-dashboard:
+    build: ./emulation/dashboard
+    container_name: xdr-emu-dashboard
+    ports:
+      - "9000:9000"
+    networks:
+      - xdr-network
+
+  emu-red:
+    build: ./emulation/red_sim
+    container_name: xdr-emu-red
+    networks:
+      - xdr-network
+
+  emu-endpoint:
+    build: ./emulation/endpoint_sim
+    container_name: xdr-emu-endpoint
+    networks:
+      - xdr-network
+
+  emu-email:
+    build: ./emulation/email_sim
+    container_name: xdr-emu-email
+    networks:
+      - xdr-network
+
+networks:
+  xdr-network:

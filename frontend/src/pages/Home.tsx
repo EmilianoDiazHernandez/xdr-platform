@@ -31,7 +31,7 @@ export function Home() {
     }
 
     cargarDatos();
-    const interval = setInterval(cargarDatos, 10000); // Polling cada 10s
+    const interval = setInterval(cargarDatos, 2000); // Polling cada 2s para tiempo real
     return () => clearInterval(interval);
   }, []);
 

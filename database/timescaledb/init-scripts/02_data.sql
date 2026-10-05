@@ -36,13 +36,21 @@ ON CONFLICT DO NOTHING;
 INSERT INTO dispositivos (id_dispositivo, mac_address, id_tipo, id_metodo_descubrimiento, es_critico) VALUES 
 ('11111111-1111-1111-1111-111111111111', '00:1A:2B:3C:4D:5E', 2, 2, FALSE), -- Workstation
 ('22222222-2222-2222-2222-222222222222', '00:1A:2B:3C:4D:5F', 3, 1, TRUE),  -- Database Server
-('33333333-3333-3333-3333-333333333333', '00:1A:2B:3C:4D:60', 5, 1, TRUE);   -- Router
+('33333333-3333-3333-3333-333333333333', '00:1A:2B:3C:4D:60', 5, 1, TRUE),  -- Router
+('44444444-4444-4444-4444-444444444444', '00:1A:2B:3C:4D:61', 5, 2, FALSE), -- Attacker (Router/External)
+('55555555-5555-5555-5555-555555555555', '00:1A:2B:3C:4D:62', 3, 1, TRUE),  -- Web Server
+('66666666-6666-6666-6666-666666666666', '00:1A:2B:3C:4D:63', 3, 1, TRUE),  -- Mail Server
+('77777777-7777-7777-7777-777777777777', '00:1A:2B:3C:4D:64', 2, 2, FALSE); -- Workstation Ventas
 
 -- Insertar IPs Históricas para esos dispositivos
 INSERT INTO dispositivo_ips (id_dispositivo, direccion_ip, hostname, activa) VALUES
 ('11111111-1111-1111-1111-111111111111', '192.168.1.45', 'desktop-dev', TRUE),
 ('22222222-2222-2222-2222-222222222222', '192.168.1.100', 'db-prod', TRUE),
-('33333333-3333-3333-3333-333333333333', '192.168.1.1', 'gateway', TRUE);
+('33333333-3333-3333-3333-333333333333', '192.168.1.1', 'gateway', TRUE),
+('44444444-4444-4444-4444-444444444444', '185.15.2.2', 'kali-attacker', TRUE),
+('55555555-5555-5555-5555-555555555555', '172.16.0.10', 'dmz-web-srv', TRUE),
+('66666666-6666-6666-6666-666666666666', '172.16.0.20', 'corp-mail-srv', TRUE),
+('77777777-7777-7777-7777-777777777777', '10.20.30.45', 'ventas-pc', TRUE);
 
 -- 3. POBLAR FLUJOS DE TRÁFICO (Mock)
 INSERT INTO flujos_trafico (
