@@ -54,7 +54,7 @@ export function Home({ onNavegar }: { onNavegar?: (pagina: string, param?: strin
   }, []);
 
   return (
-    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+    <div className="p-4 sm:p-6 flex flex-col gap-4">
 
       {/* Título */}
       <div>
@@ -72,15 +72,15 @@ export function Home({ onNavegar }: { onNavegar?: (pagina: string, param?: strin
       {/* Estado de servicios */}
       <StatusPanel servicios={servicios} />
 
-      {/* Alertas + Gráficas lado a lado */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", alignItems: "start" }}>
+      {/* Alertas + Gráficas lado a lado en desktop, apiladas en pantallas pequeñas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px] items-start">
         <AlertList alertas={alertas} onNavegar={onNavegar} />
         <AlertChart alertas={alertas} />
       </div>
 
       {/* Botón de reporte al fondo */}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <div style={{ width: "260px" }}>
+      <div className="flex justify-end w-full">
+        <div className="w-full sm:w-[260px]">
           <ReportButton />
         </div>
       </div>

@@ -6,6 +6,11 @@ export interface Alerta {
   timestamp:   string;
   severidad:   NivelSeveridad;
   descripcion: string;
+  mitre_technique_id?: string;
+  mitre_tactic?: string;
+  mitre_software_id?: string;
+  vector_origen?: string;
+  id_evento_correlacionado?: string;
   isGeneralEvent?: boolean;
 }
 
@@ -44,11 +49,17 @@ export interface TopologyData {
 }
 
 export interface AttackFlowStep {
-  layer: string;
-  description: string;
-  severidad: number;
-  timestamp: string;
+  layer?: string;
+  vector?: string;
+  description?: string;
+  severidad?: number;
+  timestamp?: string;
   probabilidad?: number;
+  mitre_technique_id?: string;
+  mitre_tactic?: string;
+  mitre_software_id?: string;
+  dest_ip?: string;
+  file_hash?: string;
 }
 
 export interface CorrelatedEvent {
@@ -60,4 +71,33 @@ export interface CorrelatedEvent {
   severity: number;
   probability: number;
   attack_flow: AttackFlowStep[];
+}
+
+export interface TimelineItem {
+  id_alerta?: number | null;
+  step_order: number;
+  timestamp: string;
+  vector: string;
+  descripcion: string;
+  mitre_tactic?: string | null;
+  mitre_technique_id?: string | null;
+  mitre_software_id?: string | null;
+  severidad: string;
+  ip_origen?: string | null;
+  ip_destino?: string | null;
+  file_hash?: string | null;
+}
+
+export interface IncidentTimeline {
+  id_evento_correlacionado: string;
+  id_dispositivo_origen: string;
+  fecha_inicio: string;
+  fecha_actualizacion: string;
+  estado: string;
+  severidad_global: number;
+  probabilidad_global: number;
+  id_campana?: string | null;
+  total_pasos: number;
+  vectores_involucrados: string[];
+  timeline: TimelineItem[];
 }

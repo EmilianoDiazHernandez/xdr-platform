@@ -2,7 +2,7 @@ import { EstadoServicio } from "../types";
 
 export function StatusPanel({ servicios }: { servicios: EstadoServicio[] }) {
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {servicios.map(s => (
         <div
           key={s.nombre}

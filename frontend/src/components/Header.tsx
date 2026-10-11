@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
+import { Menu } from "lucide-react";
 
-export function Header({ titulo }: { titulo: string }) {
+interface HeaderProps {
+  titulo: string;
+  onToggleSidebar?: () => void;
+}
+
+export function Header({ titulo, onToggleSidebar }: HeaderProps) {
   const [ahora, setAhora] = useState(new Date());
 
   useEffect(() => {
@@ -14,22 +20,39 @@ export function Header({ titulo }: { titulo: string }) {
 
   return (
     <div
-      className="flex items-center justify-between flex-shrink-0 px-6"
+      className="flex items-center justify-between flex-shrink-0 px-4 sm:px-6"
       style={{
         height: "52px",
         background: "rgba(24,18,32,0.8)",
         borderBottom: "1px solid var(--border)",
       }}
     >
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2" style={{ fontSize: "12px" }}>
-        <span style={{ color: "var(--txt3)" }}>XDR Platform</span>
-        <span style={{ color: "var(--txt3)", fontSize: "10px" }}>›</span>
-        <span style={{ color: "var(--txt)", fontWeight: 600 }}>{titulo}</span>
+      {/* Left: Hamburger button + Breadcrumb */}
+      <div className="flex items-center gap-3">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="flex items-center justify-center p-2 rounded-lg text-slate-300 hover:text-white transition-colors"
+            style={{
+              background: "var(--bg3)",
+              border: "1px solid var(--border)",
+            }}
+            aria-label="Abrir menú de navegación"
+            title="Desplegar menú lateral"
+          >
+            <Menu size={16} />
+          </button>
+        )}
+
+        <div className="flex items-center gap-2" style={{ fontSize: "12px" }}>
+          <span className="hidden sm:inline" style={{ color: "var(--txt3)" }}>XDR Platform</span>
+          <span className="hidden sm:inline" style={{ color: "var(--txt3)", fontSize: "10px" }}>›</span>
+          <span style={{ color: "var(--txt)", fontWeight: 600 }}>{titulo}</span>
+        </div>
       </div>
 
-      {/* Right */}
-      <div className="flex items-center gap-4">
+      {/* Right: Live pill + Clock */}
+      <div className="flex items-center gap-3 sm:gap-4">
         {/* Live pill */}
         <div
           className="flex items-center gap-2"
@@ -56,7 +79,7 @@ export function Header({ titulo }: { titulo: string }) {
         </div>
         {/* Clock */}
         <span
-          className="font-mono"
+          className="font-mono hidden xs:inline"
           style={{ fontSize: "11px", color: "var(--txt3)" }}
         >
           {hora}

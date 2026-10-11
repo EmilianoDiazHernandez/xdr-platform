@@ -15,3 +15,5 @@ slowapi
 asyncpg
 redis
 lightgbm
+
+httpx

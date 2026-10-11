@@ -53,3 +53,12 @@ def normal_network():
         return {"status": "success", "message": "Tráfico de red normal (Legítimo) inyectado", "details": res.json()}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.post("/api/attack/lateral")
+def attack_lateral():
+    try:
+        # Timeout aumentado a 30s debido a que el script de simulación duerme 5s y procesa
+        res = requests.post("http://emu-red/trigger-lateral", timeout=30.0)
+        return {"status": "success", "message": "Movimiento Lateral iniciado", "details": res.json()}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

@@ -1,6 +1,12 @@
+from typing import Optional, Union, List
+from uuid import UUID
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 class ZeekLog(BaseModel):
+    # Identidad e Idempotencia
+    idempotency_key: Optional[str] = None
+    
     # Metadatos de Zeek
     ts: float = 0.0
     uid: str = "unknown"
@@ -46,6 +52,7 @@ class ZeekLog(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 class SysmonLog(BaseModel):
+    idempotency_key: Optional[str] = None
     host: str
     ip_local: str
     EventID: int
@@ -89,3 +96,22 @@ class AttackFlowStep(BaseModel):
     vector: str
     anomaly_score: float
     description: str
+    mitre_technique_id: str | None = None
+    mitre_tactic: str | None = None
+    dest_ip: str | None = None
+    file_hash: str | None = None
+    mitre_software_id: str | None = None
+
+class KillChainStepResponse(BaseModel):
+    id_alerta: Union[UUID, str, int]
+    timestamp: Union[datetime, str]
+    vector: str
+    severidad: str
+    mitre_tactic: Optional[str] = None
+    mitre_technique_id: Optional[str] = None
+    descripcion: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+

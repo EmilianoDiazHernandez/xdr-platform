@@ -1,13 +1,29 @@
 import uuid
 import time
 import json
+import hashlib
 from src.infrastructure.database import Database
 from src.infrastructure.redis_client import RedisClient
 from src.core.logger import logger
 from src.core.config import TTL_RED, TTL_EDR, TTL_EMAIL
 from src.services.correlation_service import CorrelationService
 
+class IdempotencyConflictError(Exception):
+    """Se genera cuando la misma idempotency_key se usa con un payload diferente."""
+    pass
+
+class PersistenceError(Exception):
+    """Se genera ante un fallo crítico en la base de datos durante la persistencia."""
+    pass
+
 class AlertService:
+    @staticmethod
+    def compute_payload_hash(data: dict) -> str:
+        """Calcula el hash SHA-256 canónico del payload omitiendo la llave de idempotencia."""
+        clean = {k: v for k, v in data.items() if k != "idempotency_key"}
+        raw = json.dumps(clean, sort_keys=True, default=str)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
     @staticmethod
     async def get_or_create_device(conn, ip: str):
         """Descubrimiento pasivo de dispositivos asíncrono."""
@@ -35,23 +51,42 @@ class AlertService:
         return dev_id
 
     @staticmethod
-    async def registrar_flujo_y_alerta_db(log: 'ZeekLog', prob_red: float, prob_fusion: float, accion: str, severidad_nombre: str):
+    async def registrar_flujo_y_alerta_db(log: 'ZeekLog', prob_red: float, prob_fusion: float, accion: str, severidad_nombre: str, mitre_technique_id: str = None, mitre_tactic: str = None, escalar_alerta: bool = False, mitre_software_id: str = None) -> dict:
         pool = Database.get_pool()
-        if not pool: return
+        if not pool:
+            raise PersistenceError("Pool de base de datos no inicializado")
+        
+        payload_hash = AlertService.compute_payload_hash(log.model_dump())
         
         try:
             async with pool.acquire() as conn:
                 async with conn.transaction():
-                    # 1. Identidad
+                    # 1. Comprobar Idempotencia si se proporciona llave
+                    if log.idempotency_key:
+                        row_idem = await conn.fetchrow(
+                            "SELECT payload_hash, response_data FROM registro_idempotencia WHERE idempotency_key = $1",
+                            log.idempotency_key
+                        )
+                        if row_idem:
+                            if row_idem['payload_hash'] == payload_hash:
+                                resp = row_idem['response_data']
+                                if isinstance(resp, str):
+                                    resp = json.loads(resp)
+                                resp["idempotent_replay"] = True
+                                return resp
+                            else:
+                                raise IdempotencyConflictError(f"Idempotency key '{log.idempotency_key}' ya fue utilizada con un payload incompatible")
+
+                    # 2. Identidad y resolución de dispositivos
                     id_origen = await AlertService.get_or_create_device(conn, log.orig_ip)
                     id_destino = await AlertService.get_or_create_device(conn, log.resp_ip)
                     flujo_id = uuid.uuid4()
                     ts = log.ts if log.ts > 0 else time.time()
                     
-                    es_anomalia = prob_red >= 0.48 or prob_fusion >= 0.65 # Umbrales Hardcoded por ahora
+                    es_anomalia = prob_fusion >= 0.65
                     tipo_ataque = "MALWARE" if prob_red > 0.8 else "ANOMALIA" if es_anomalia else "NINGUNA"
 
-                    # 2. Insertar Flujo
+                    # 3. Insertar Flujo de Red
                     proto_map = {'tcp': 6, 'udp': 17, 'icmp': 1}
                     proto_num = proto_map.get(log.proto.lower(), 0)
 
@@ -76,46 +111,92 @@ class AlertService:
                         log.Average_Packet_Size, es_anomalia, prob_red
                     )
 
-                    # 3. Insertar Alerta si aplica
-                    if es_anomalia:
+                    # 4. Insertar Alerta si aplica
+                    id_evento = None
+                    if escalar_alerta:
                         severidad = await conn.fetchval("SELECT id_severidad FROM cat_severidad WHERE nombre = $1", severidad_nombre)
                         id_severidad = severidad if severidad else 2
                         
                         id_evento = await CorrelationService.correlate_and_get_event(
-                            conn, id_origen, id_severidad, "Network", f"Anomalía en tráfico hacia {log.resp_ip}", ts, prob_fusion
+                            conn, id_origen, id_severidad, "Network", f"Anomalía en tráfico hacia {log.resp_ip}", ts, prob_fusion, dest_ip=log.resp_ip,
+                            mitre_technique_id=mitre_technique_id, mitre_tactic=mitre_tactic, mitre_software_id=mitre_software_id
                         )
                         
                         await conn.execute(
                             """
                             INSERT INTO alertas_xdr 
                             (time, id_flujo_relacionado, time_flujo_relacionado, id_dispositivo_afectado, 
-                             id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado)
-                            VALUES (to_timestamp($1), $2, to_timestamp($3), $4, $5, 1, 'Machine Learning', $6, $7, $8)
+                             id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado,
+                             mitre_technique_id, mitre_tactic, vector_origen, mitre_software_id)
+                            VALUES (to_timestamp($1), $2, to_timestamp($3), $4, $5, 1, 'Machine Learning', $6, $7, $8, $9, $10, 'Red', $11)
                             """,
                             ts, flujo_id, ts, id_origen, id_severidad, tipo_ataque, 
                             f"Anomalía detectada. Prob RED: {prob_red:.4f}. Fusión: {prob_fusion:.4f}. Acción: {accion}",
-                            id_evento
+                            id_evento, mitre_technique_id, mitre_tactic, mitre_software_id
                         )
+                        
+                    response_payload = {
+                        "uid": log.uid,
+                        "prob_red_cruda": round(prob_red, 4),
+                        "prob_fusion_xdr": round(prob_fusion, 4),
+                        "accion": accion,
+                        "severidad": severidad_nombre,
+                        "id_evento_correlacionado": id_evento,
+                        "idempotent_replay": False
+                    }
+                    
+                    if log.idempotency_key:
+                        await conn.execute(
+                            """
+                            INSERT INTO registro_idempotencia (idempotency_key, payload_hash, response_data)
+                            VALUES ($1, $2, $3::jsonb)
+                            """,
+                            log.idempotency_key, payload_hash, json.dumps(response_payload)
+                        )
+                        
+                    return response_payload
+        except IdempotencyConflictError:
+            raise
         except Exception as e:
-            logger.error(f"[DB_ERROR] Fallo persistencia total: {e}")
+            logger.exception("Fallo persistiendo registro de red en base de datos")
+            raise PersistenceError(f"Error crítico en base de datos: {e}") from e
 
     @staticmethod
-    async def registrar_evento_y_alerta_edr_db(log: 'SysmonLog', prob_edr: float, prob_fusion: float, cadena_activa: bool, accion: str, severidad_nombre: str):
+    async def registrar_evento_y_alerta_edr_db(log: 'SysmonLog', prob_edr: float, prob_fusion: float, cadena_activa: bool, accion: str, severidad_nombre: str, mitre_technique_id: str = None, mitre_tactic: str = None, escalar_alerta: bool = False, mitre_software_id: str = None) -> dict:
         pool = Database.get_pool()
-        if not pool: return
+        if not pool:
+            raise PersistenceError("Pool de base de datos no inicializado")
+            
+        payload_hash = AlertService.compute_payload_hash(log.model_dump())
         
         try:
             async with pool.acquire() as conn:
                 async with conn.transaction():
-                    # 1. Identidad
+                    # 1. Comprobar Idempotencia si se proporciona llave
+                    if log.idempotency_key:
+                        row_idem = await conn.fetchrow(
+                            "SELECT payload_hash, response_data FROM registro_idempotencia WHERE idempotency_key = $1",
+                            log.idempotency_key
+                        )
+                        if row_idem:
+                            if row_idem['payload_hash'] == payload_hash:
+                                resp = row_idem['response_data']
+                                if isinstance(resp, str):
+                                    resp = json.loads(resp)
+                                resp["idempotent_replay"] = True
+                                return resp
+                            else:
+                                raise IdempotencyConflictError(f"Idempotency key '{log.idempotency_key}' ya fue utilizada con un payload incompatible")
+
+                    # 2. Identidad
                     id_dispositivo = await AlertService.get_or_create_device(conn, log.ip_local)
                     evento_id = uuid.uuid4()
-                    ts = time.time() # SysmonLog no trae TS en el schema actual, usamos server-side
+                    ts = time.time()
                     
-                    es_anomalia = prob_edr >= 0.55 or prob_fusion >= 0.85 or cadena_activa
+                    es_anomalia = prob_fusion >= 0.65
                     tipo_ataque = "EDR_DETECTION" if es_anomalia else "NINGUNA"
 
-                    # 2. Insertar Evento de Telemetría
+                    # 3. Insertar Evento de Telemetría
                     await conn.execute(
                         """
                         INSERT INTO eventos_endpoint (
@@ -129,30 +210,58 @@ class AlertService:
                         prob_edr, es_anomalia, cadena_activa
                     )
 
-                    # 3. Insertar Alerta si aplica
-                    if es_anomalia:
+                    # 4. Insertar Alerta si aplica
+                    id_evento = None
+                    if escalar_alerta:
                         severidad = await conn.fetchval("SELECT id_severidad FROM cat_severidad WHERE nombre = $1", severidad_nombre)
                         id_severidad = severidad if severidad else 2
                         
                         id_evento = await CorrelationService.correlate_and_get_event(
-                            conn, id_dispositivo, id_severidad, "Endpoint", f"Ejecución anómala: {log.proceso}", ts, prob_fusion
+                            conn, id_dispositivo, id_severidad, "Endpoint", f"Ejecución anómala: {log.proceso}", ts, prob_fusion, dest_ip=log.ip_local, file_hash=log.hashes,
+                            mitre_technique_id=mitre_technique_id, mitre_tactic=mitre_tactic, mitre_software_id=mitre_software_id
                         )
 
                         await conn.execute(
                             """
                             INSERT INTO alertas_xdr 
-                            (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado)
-                            VALUES (to_timestamp($1), $2, $3, 1, 'Machine Learning', $4, $5, $6)
+                            (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado, mitre_technique_id, mitre_tactic, vector_origen, mitre_software_id)
+                            VALUES (to_timestamp($1), $2, $3, 1, 'Machine Learning', $4, $5, $6, $7, $8, 'Endpoint', $9)
                             """,
                             ts, id_dispositivo, id_severidad, tipo_ataque, 
                             f"Proceso anómalo: {log.proceso}. CMD: {log.cmd}. Prob EDR: {prob_edr:.4f}. Fusión: {prob_fusion:.4f}. Acción: {accion}",
-                            id_evento
+                            id_evento, mitre_technique_id, mitre_tactic, mitre_software_id
                         )
+                        
+                    response_payload = {
+                        "host": log.host,
+                        "proceso": log.proceso,
+                        "prob_edr_cruda": round(prob_edr, 4),
+                        "prob_fusion_xdr": round(prob_fusion, 4),
+                        "cadena_activa": cadena_activa,
+                        "accion": accion,
+                        "severidad": severidad_nombre,
+                        "id_evento_correlacionado": id_evento,
+                        "idempotent_replay": False
+                    }
+                    
+                    if log.idempotency_key:
+                        await conn.execute(
+                            """
+                            INSERT INTO registro_idempotencia (idempotency_key, payload_hash, response_data)
+                            VALUES ($1, $2, $3::jsonb)
+                            """,
+                            log.idempotency_key, payload_hash, json.dumps(response_payload)
+                        )
+                        
+                    return response_payload
+        except IdempotencyConflictError:
+            raise
         except Exception as e:
-            logger.error(f"[DB_ERROR] Fallo persistencia EDR: {e}")
+            logger.exception("Fallo persistiendo evento de endpoint en base de datos")
+            raise PersistenceError(f"Error crítico en base de datos: {e}") from e
 
     @staticmethod
-    async def registrar_alerta_db(ip_afectada: str, severidad_nombre: str, tipo_capa: str, accion: str, descripcion: str):
+    async def registrar_alerta_db(ip_afectada: str, severidad_nombre: str, tipo_capa: str, accion: str, descripcion: str, mitre_technique_id: str = None, mitre_tactic: str = None, mitre_software_id: str = None, prob_score: float = 0.9):
         pool = Database.get_pool()
         if not pool:
             return
@@ -165,17 +274,18 @@ class AlertService:
                 id_severidad = severidad if severidad else 2
 
                 id_evento = await CorrelationService.correlate_and_get_event(
-                            conn, id_dispositivo, id_severidad, "Email", descripcion, time.time(), 0.9
-                        )
+                    conn, id_dispositivo, id_severidad, "Email", descripcion, time.time(), prob_score,
+                    mitre_technique_id=mitre_technique_id, mitre_tactic=mitre_tactic, mitre_software_id=mitre_software_id
+                )
 
                 await conn.execute("""
                     INSERT INTO alertas_xdr 
-                    (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado)
-                    VALUES (NOW(), $1, $2, 1, 'Machine Learning', $3, $4, $5)
-                """, id_dispositivo, id_severidad, tipo_capa, f"Acción tomada: {accion} | Detalles: {descripcion}", id_evento)
+                    (time, id_dispositivo_afectado, id_severidad, id_estado, tipo_deteccion, tipo_ataque, descripcion, id_evento_correlacionado, mitre_technique_id, mitre_tactic, vector_origen, mitre_software_id)
+                    VALUES (NOW(), $1, $2, 1, 'Machine Learning', $3, $4, $5, $6, $7, 'Email', $8)
+                """, id_dispositivo, id_severidad, tipo_capa, f"Acción tomada: {accion} | Detalles: {descripcion}", id_evento, mitre_technique_id, mitre_tactic, mitre_software_id)
                 
         except Exception as e:
-            logger.error(f"[DB_ERROR] Fallo al guardar alerta en DB: {e}")
+            logger.exception("Fallo persistiendo alerta XDR de email")
 
     @staticmethod
     async def registrar_alerta_redis_red(log, prob_red):
@@ -190,7 +300,8 @@ class AlertService:
             pipe.expire(f"alertas_red:{log.orig_ip}", TTL_RED)
             await pipe.execute()
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Fallo persistiendo alerta de red en Redis: {e}")
             return False
 
     @staticmethod
@@ -203,8 +314,8 @@ class AlertService:
                 alerta = json.dumps({"ts": time.time(), "prob": prob_edr, "accion": accion})
                 await client.lpush(f"alertas_edr:{log.host}", alerta)
                 await client.expire(f"alertas_edr:{log.host}", TTL_EDR)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Fallo persistiendo alerta en Redis: {e}")
 
     @staticmethod
     async def registrar_alerta_redis_email(log, prob_phish, prob_spam, accion):
@@ -216,8 +327,8 @@ class AlertService:
                 alerta = json.dumps({"ts": time.time(), "phish": prob_phish, "spam": prob_spam, "accion": accion})
                 await client.lpush(f"alertas_email:{log.host}", alerta)
                 await client.expire(f"alertas_email:{log.host}", TTL_EMAIL)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Fallo persistiendo alerta en Redis: {e}")
 
     @staticmethod
     async def actualizar_historial_edr(log, config_edr):
@@ -238,5 +349,6 @@ class AlertService:
             await pipe.execute()
             raw_hist = await client.lrange(hist_key, 0, -1)
             return [json.loads(x) for x in raw_hist][::-1]
-        except Exception:
+        except Exception as e:
+            logger.error(f"Fallo actualizando historial EDR en Redis: {e}")
             return [{"cmd": proc_nombre}]

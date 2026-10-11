@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TopologyNode, TopologyEdge } from "../types";
 import { Server, Laptop, Router, Cpu, ShieldAlert } from "lucide-react";
 
@@ -23,10 +23,11 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
   // Inicializar posiciones aleatorias, pero mantener las existentes
   useEffect(() => {
     setGraphNodes(prev => {
-      const prevMap = new Map(prev.map(p => [p.id, p]));
+      const prevMap = new Map<string, NodeWithPos>(prev.map(p => [p.id, p]));
       return nodes.map(n => {
-        if (prevMap.has(n.id)) {
-          return { ...prevMap.get(n.id), ...n }; // Merge new properties, keep x, y, vx, vy
+        const existing = prevMap.get(n.id);
+        if (existing) {
+          return { ...existing, ...n }; // Merge new properties, keep x, y, vx, vy
         }
         return {
           ...n,

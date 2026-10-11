@@ -50,9 +50,8 @@ class FusionService:
             except Exception:
                 pass
 
-        red_ponderada = prob_red * FusionService.PESO_RED
-        edr_ponderada = prob_edr * FusionService.PESO_EDR
-        prob_fusion = red_ponderada + edr_ponderada
+        # Unión de probabilidades: si no hay alerta EDR, no se castiga el score Red.
+        prob_fusion = prob_red + prob_edr - (prob_red * prob_edr)
         
         config_red = ModelLoader.get('red')['config']
         alerta_cruzada = prob_fusion >= 0.65
@@ -83,12 +82,8 @@ class FusionService:
             except Exception:
                 pass
 
-        if prob_red == 0.0:
-            prob_fusion = (prob_edr * 0.75) + (0.05 * 0.25)
-        else:
-            red_ponderada = prob_red * FusionService.PESO_RED
-            edr_ponderada = prob_edr * FusionService.PESO_EDR
-            prob_fusion = red_ponderada + edr_ponderada
+        # Unión de probabilidades: si no hay alerta de red, no se castiga el score EDR.
+        prob_fusion = prob_red + prob_edr - (prob_red * prob_edr)
         
         if cadena_activa:
             prob_fusion = min(1.0, prob_fusion + 0.25) 
