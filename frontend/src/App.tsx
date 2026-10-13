@@ -4,6 +4,7 @@ import { Header }  from "./components/Header";
 import { Home }    from "./pages/Home";
 import { Topology } from "./pages/Topology";
 import { Alerts } from "./pages/Alerts";
+import { Events } from "./pages/Events";
 
 const TITULOS: Record<string, string> = {
   inicio:        "Inicio",
@@ -79,6 +80,7 @@ export default function App() {
     if (paginaActiva === "inicio") return <Home onNavegar={handleNavegar} />;
     if (paginaActiva === "topologia") return <Topology />;
     if (paginaActiva === "alertas") return <Alerts eventoSeleccionado={eventoSeleccionado} />;
+    if (paginaActiva === "eventos") return <Events eventoSeleccionado={eventoSeleccionado} />;
     return <Placeholder titulo={TITULOS[paginaActiva]} />;
   };
 
