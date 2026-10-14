@@ -1,4 +1,4 @@
-import { Alerta } from "../types";
+import { Alerta, PageId } from "../types";
 
 const SEV_COLOR: Record<string, string> = {
   Alta: "#ef4444",
@@ -32,7 +32,7 @@ function ordenar(alertas: Alerta[]): Alerta[] {
   });
 }
 
-export function AlertList({ alertas, onNavegar }: { alertas: Alerta[], onNavegar?: (pagina: string, param?: string) => void }) {
+export function AlertList({ alertas, onNavegar }: { alertas: Alerta[], onNavegar?: (pagina: PageId, param?: string) => void }) {
   const ordenadas = ordenar(alertas);
 
   return (
