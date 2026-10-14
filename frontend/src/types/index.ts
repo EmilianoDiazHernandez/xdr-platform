@@ -1,4 +1,6 @@
-export type NivelSeveridad = "Alta" | "Media" | "Baja";
+export * from "./auth";
+
+export type NivelSeveridad = "Crítica" | "Alta" | "Media" | "Baja";
 
 export interface Alerta {
   id:          number | string;

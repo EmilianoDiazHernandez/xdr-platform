@@ -30,8 +30,8 @@ export function Topology() {
             setActiveEvent(matching);
             setLoadingTimeline(true);
             fetchIncidentTimeline(matching.id)
-              .then((steps: any[]) => {
-                setKillChainTimeline(Array.isArray(steps) ? steps : []);
+              .then((timeline) => {
+                setKillChainTimeline(Array.isArray(timeline) ? timeline : []);
                 setLoadingTimeline(false);
               })
               .catch((err) => {

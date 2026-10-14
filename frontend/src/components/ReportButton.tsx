@@ -2,6 +2,13 @@ import { useState } from "react";
 import { Download, Loader, CheckCircle, XCircle } from "lucide-react";
 import { EstadoReporte } from "../types";
 import { REPORT_BASE_URL } from "../api/config";
+import { apiBlob, REPORT_TIMEOUT_MS } from "../api/client";
+
+// Nombre de descarga según RF15: ALERTAS-YYYYMMDD-HHmm.pdf
+function nombreReporte(fecha: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `ALERTAS-${fecha.getFullYear()}${p(fecha.getMonth() + 1)}${p(fecha.getDate())}-${p(fecha.getHours())}${p(fecha.getMinutes())}.pdf`;
+}
 
 export function ReportButton() {
   const [estado, setEstado] = useState<EstadoReporte>("listo");
@@ -11,17 +18,15 @@ export function ReportButton() {
     if (estado === "generando") return;
     setEstado("generando");
     try {
-      const response = await fetch(`${REPORT_BASE_URL}/reports/generate?n_alertas=50`, {
-        method: "POST"
+      const blob = await apiBlob(REPORT_BASE_URL, "/reports/generate?n_alertas=50", {
+        method: "POST",
+        timeoutMs: REPORT_TIMEOUT_MS,
       });
 
-      if (!response.ok) throw new Error("Error en el servidor");
-
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `XDR-Report-${new Date().getTime()}.pdf`;
+      a.download = nombreReporte(new Date());
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

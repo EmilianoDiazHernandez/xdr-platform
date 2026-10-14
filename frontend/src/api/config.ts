@@ -1,39 +1,46 @@
-export const API_BASE_URL = "http://localhost:8000/api/v1";
-export const REPORT_BASE_URL = "http://localhost:8001/api/v1";
-export const TOPOLOGY_BASE_URL = "http://localhost:8002/api/v1";
+import { apiRequest } from "./client";
+import type { Alerta, CorrelatedEvent, IncidentTimeline, TopologyData } from "../types";
 
-export async function fetchAlertas() {
-  const r = await fetch(`${API_BASE_URL}/alertas`);
-  if (!r.ok) throw new Error("Error al obtener alertas");
-  return r.json();
+export const API_BASE_URL      = import.meta.env.VITE_API_BASE_URL      ?? "http://localhost:8000/api/v1";
+export const REPORT_BASE_URL   = import.meta.env.VITE_REPORT_BASE_URL   ?? "http://localhost:8001/api/v1";
+export const TOPOLOGY_BASE_URL = import.meta.env.VITE_TOPOLOGY_BASE_URL ?? "http://localhost:8002/api/v1";
+
+// /health vive en la raíz del servicio, no bajo /api/v1
+const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+
+interface EstadoCapa {
+  activa: boolean;
 }
 
-export async function fetchIncidentTimeline(id: string) {
-  const r = await fetch(`${API_BASE_URL}/eventos-correlacionados/${id}/timeline`);
-  if (!r.ok) throw new Error("Error al obtener la línea de tiempo del incidente");
-  return r.json();
+export interface HealthResponse {
+  capas: {
+    red:      EstadoCapa;
+    endpoint: EstadoCapa;
+    email:    EstadoCapa;
+  };
+  redis: { activo: boolean };
 }
 
-export async function fetchHealth() {
-  const r = await fetch("http://localhost:8000/health");
-  if (!r.ok) throw new Error("Error al obtener health");
-  return r.json();
+export function fetchAlertas(): Promise<Alerta[]> {
+  return apiRequest<Alerta[]>(API_BASE_URL, "/alertas");
 }
 
-export async function fetchTopology() {
-  const r = await fetch(`${TOPOLOGY_BASE_URL}/topology`);
-  if (!r.ok) throw new Error("Error al obtener topología");
-  return r.json();
+export function fetchIncidentTimeline(id: string): Promise<IncidentTimeline> {
+  return apiRequest<IncidentTimeline>(API_BASE_URL, `/eventos-correlacionados/${encodeURIComponent(id)}/timeline`);
 }
 
-export async function fetchEvents() {
-  const r = await fetch(`${TOPOLOGY_BASE_URL}/topology/events`);
-  if (!r.ok) throw new Error("Error al obtener eventos");
-  return r.json();
+export function fetchHealth(): Promise<HealthResponse> {
+  return apiRequest<HealthResponse>(API_ROOT_URL, "/health");
 }
 
-export async function fetchNodeAlerts(deviceId: string) {
-  const response = await fetch(`${TOPOLOGY_BASE_URL}/topology/node_alerts/${deviceId}`);
-  if (!response.ok) throw new Error("Error fetching node alerts");
-  return response.json();
+export function fetchTopology(): Promise<TopologyData> {
+  return apiRequest<TopologyData>(TOPOLOGY_BASE_URL, "/topology");
+}
+
+export function fetchEvents(): Promise<CorrelatedEvent[]> {
+  return apiRequest<CorrelatedEvent[]>(TOPOLOGY_BASE_URL, "/topology/events");
+}
+
+export function fetchNodeAlerts(deviceId: string): Promise<Alerta[]> {
+  return apiRequest<Alerta[]>(TOPOLOGY_BASE_URL, `/topology/node_alerts/${encodeURIComponent(deviceId)}`);
 }
