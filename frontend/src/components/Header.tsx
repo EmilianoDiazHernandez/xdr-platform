@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
+import { ROLE_LABEL } from "../auth/roles";
 
 interface HeaderProps {
   titulo: string;
@@ -7,7 +9,15 @@ interface HeaderProps {
 }
 
 export function Header({ titulo, onToggleSidebar }: HeaderProps) {
+  const { session, logout } = useAuth();
   const [ahora, setAhora] = useState(new Date());
+  const [cerrando, setCerrando] = useState(false);
+
+  const handleLogout = async () => {
+    if (cerrando) return;
+    setCerrando(true);
+    await logout();
+  };
 
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 1000);
@@ -84,6 +94,37 @@ export function Header({ titulo, onToggleSidebar }: HeaderProps) {
         >
           {hora}
         </span>
+
+        {/* Usuario + cerrar sesión */}
+        {session && (
+          <div className="flex items-center gap-3" style={{ paddingLeft: "12px", borderLeft: "1px solid var(--border)" }}>
+            <div className="hidden md:flex flex-col items-end" style={{ lineHeight: 1.2 }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--txt)" }}>{session.user.nombre}</span>
+              <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "var(--txt3)" }}>
+                {ROLE_LABEL[session.user.role]}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              disabled={cerrando}
+              className="flex items-center gap-2 rounded-lg text-slate-300 hover:text-white transition-colors"
+              style={{
+                padding: "6px 10px",
+                background: "var(--bg3)",
+                border: "1px solid var(--border)",
+                fontSize: "11px",
+                fontWeight: 600,
+                cursor: cerrando ? "default" : "pointer",
+                opacity: cerrando ? 0.6 : 1,
+              }}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <LogOut size={14} />
+              <span className="hidden sm:inline">Cerrar sesión</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <style>{`

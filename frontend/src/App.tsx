@@ -4,6 +4,8 @@ import { Header }  from "./components/Header";
 import { Home }    from "./pages/Home";
 import { Topology } from "./pages/Topology";
 import { Alerts } from "./pages/Alerts";
+import { Login } from "./pages/Login";
+import { useAuth } from "./auth/AuthContext";
 
 const TITULOS: Record<string, string> = {
   inicio:        "Inicio",
@@ -63,6 +65,11 @@ function StatusBar() {
 }
 
 export default function App() {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <Dashboard /> : <Login />;
+}
+
+function Dashboard() {
   const [paginaActiva, setPaginaActiva] = useState("inicio");
   const [eventoSeleccionado, setEventoSeleccionado] = useState<string | null>(null);
   const [sidebarMobileAbierto, setSidebarMobileAbierto] = useState(false);
