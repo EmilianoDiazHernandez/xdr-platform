@@ -135,7 +135,7 @@ Secciones del Sidebar por rol: Analista → General / Detección / Reportes; Adm
 - Crear `frontend/.env.example` con las 3 `VITE_*_BASE_URL` y `VITE_AUTH_MODE=mock`.
 **Aceptación:** `tsc` y `build` limpios; ninguna página hace `fetch` directo; comportamiento visual idéntico al actual.
 
-### [ ] T2 — Autenticación (login, sesión, logout, expiración) (P0)
+### [x] T2 — Autenticación (login, sesión, logout, expiración) (P0)
 **Leer:** `src/App.tsx`, `src/main.tsx`, `src/components/Header.tsx`, archivos creados en T1.
 **Crear:**
 - `src/auth/authService.ts` con interfaz `AuthAdapter { login(email, password): Promise<Session>; logout(token): Promise<void> }` y dos implementaciones seleccionadas por `import.meta.env.VITE_AUTH_MODE`:
@@ -230,4 +230,5 @@ Documentar aquí; no implementar salvo instrucción explícita:
 ## 7. Bitácora de sesiones
 
 <!-- Formato: YYYY-MM-DD · Tarea · Resumen en 1 línea · Pendientes/bloqueos -->
-2026-10-14 · T1 · types/auth.ts, api/client.ts (Bearer, 401/403, timeout 10s/20s), config.ts con env + tipos, ReportButton con apiBlob y nombre RF15, .env.example, vite-env.d.ts tipado · Topology.tsx espera un array del timeline pero el tipo IncidentTimeline es objeto (posible bug previo; revisar en T4). Pendiente commit.
+2026-10-14 · T1 · types/auth.ts, api/client.ts (Bearer, 401/403, timeout 10s/20s), config.ts con env + tipos, ReportButton con apiBlob y nombre RF15, .env.example, vite-env.d.ts tipado · Topology.tsx espera un array del timeline pero el tipo IncidentTimeline es objeto (posible bug previo; revisar en T4). Commit b081bbc.
+2026-10-14 · T2 · authService (mock/api), AuthContext (sessionStorage xdr.session, expiración 8h, registro en client.ts), Login, logout en Header, mocks/usuarios.ts compartido para T5; probado manualmente con los 3 roles + inactivo · Validar con el equipo: mensaje genérico para cuenta inactiva (RN10) vs. literal del CU, texto de sesión expirada.
