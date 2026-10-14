@@ -1,64 +1,54 @@
 import { EstadoServicio } from "../types";
+import { Network, Laptop, Mail, Database } from "lucide-react";
 
 export function StatusPanel({ servicios }: { servicios: EstadoServicio[] }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {servicios.map(s => (
-        <div
-          key={s.nombre}
-          style={{
-            background: "var(--bg3)",
-            border: "1px solid var(--border)",
-            borderRadius: "10px",
-            padding: "12px 14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--txt2)" }}>
-              {s.nombre}
-            </span>
-            <span
-              style={{
-                fontSize: "9px",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.8px",
-                padding: "2px 7px",
-                borderRadius: "4px",
-                background: s.activo ? "var(--green-bg)" : "var(--red-bg)",
-                color: s.activo ? "var(--green)" : "var(--red)",
-                border: `1px solid ${s.activo ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
-              }}
-            >
-              {s.activo ? "Online" : "Offline"}
-            </span>
-          </div>
+  const getIcon = (nombre: string) => {
+    const n = nombre.toLowerCase();
+    if (n.includes("red") || n.includes("network")) return Network;
+    if (n.includes("endpoint") || n.includes("host")) return Laptop;
+    if (n.includes("email") || n.includes("mail")) return Mail;
+    return Database;
+  };
 
-          {/* Progress bar */}
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {servicios.map((s) => {
+        const Icon = getIcon(s.nombre);
+        return (
           <div
-            style={{
-              height: "4px",
-              background: "rgba(255,255,255,0.06)",
-              borderRadius: "2px",
-              overflow: "hidden",
-            }}
+            key={s.nombre}
+            className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/60 transition-colors"
           >
-            <div
-              style={{
-                height: "100%",
-                borderRadius: "2px",
-                width: s.activo ? "90%" : "0%",
-                background: s.activo ? "var(--green)" : "var(--red)",
-                transition: "width 0.4s ease",
-              }}
-            />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`p-2 rounded-lg border ${
+                s.activo
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  : "bg-red-500/10 border-red-500/20 text-red-400"
+              }`}>
+                <Icon size={16} />
+              </div>
+              <div className="flex items-center min-w-0">
+                <span className="text-xs font-semibold text-slate-200 truncate">
+                  {s.nombre}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
+              <span className={`w-2 h-2 rounded-full ${
+                s.activo
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                  : "bg-red-500"
+              }`} />
+              <span className={`text-[10px] font-mono font-bold uppercase ${
+                s.activo ? "text-emerald-400" : "text-red-400"
+              }`}>
+                {s.activo ? "ONLINE" : "OFFLINE"}
+              </span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

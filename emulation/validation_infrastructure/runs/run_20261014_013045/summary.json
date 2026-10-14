@@ -1,0 +1,81 @@
+﻿{
+    "timestamp":  "2026-10-14T01:30:54.4919157-06:00",
+    "test_id":  "val-zeek-1791963046",
+    "target_container":  "xdr-emu-red",
+    "api_container":  "xdr-api-ml",
+    "network_interface":  "eth0",
+    "target_ip":  "172.22.0.3",
+    "api_ip":  "172.22.0.10",
+    "controls":  {
+                     "http_connectivity":  "PASS",
+                     "conn_log_capture":  "PASS",
+                     "http_log_analysis":  "PASS"
+                 },
+    "overall_status":  "PASS",
+    "diagnosis":  "Prueba de concepto completada con exito. Zeek capturo en vivo el flujo L4 TCP en conn.log y decodifico la transaccion HTTP en http.log.",
+    "evidence":  {
+                     "output_directory":  "C:\\Users\\spide\\Documents\\IPN\\TT\\xdr_v2\\xdr-platform\\emulation\\validation_infrastructure\\runs\\run_20261014_013045",
+                     "conn_log_present":  true,
+                     "conn_matches":  [
+                                          {
+                                              "ts":  "1791963051.779273",
+                                              "uid":  "CUANUFn3c2F6XbfWf",
+                                              "id.orig_h":  "172.22.0.3",
+                                              "id.orig_p":  "33654",
+                                              "id.resp_h":  "172.22.0.10",
+                                              "id.resp_p":  "8000",
+                                              "proto":  "tcp",
+                                              "service":  "http",
+                                              "duration":  "0.003708",
+                                              "orig_bytes":  "176",
+                                              "resp_bytes":  "338",
+                                              "conn_state":  "SF",
+                                              "local_orig":  "T",
+                                              "local_resp":  "T",
+                                              "missed_bytes":  "0",
+                                              "history":  "ShADadFf",
+                                              "orig_pkts":  "7",
+                                              "orig_ip_bytes":  "548",
+                                              "resp_pkts":  "5",
+                                              "resp_ip_bytes":  "606",
+                                              "tunnel_parents":  "-",
+                                              "ip_proto":  "6"
+                                          }
+                                      ],
+                     "http_log_present":  true,
+                     "http_matches":  [
+                                          {
+                                              "ts":  "1791963051.779579",
+                                              "uid":  "CUANUFn3c2F6XbfWf",
+                                              "id.orig_h":  "172.22.0.3",
+                                              "id.orig_p":  "33654",
+                                              "id.resp_h":  "172.22.0.10",
+                                              "id.resp_p":  "8000",
+                                              "trans_depth":  "1",
+                                              "method":  "GET",
+                                              "host":  "api-ml:8000",
+                                              "uri":  "/health?test_id=val-zeek-1791963046",
+                                              "referrer":  "-",
+                                              "version":  "1.1",
+                                              "user_agent":  "python-requests/2.34.2",
+                                              "origin":  "-",
+                                              "request_body_len":  "0",
+                                              "response_body_len":  "198",
+                                              "status_code":  "200",
+                                              "status_msg":  "OK",
+                                              "info_code":  "-",
+                                              "info_msg":  "-",
+                                              "tags":  "(empty)",
+                                              "username":  "-",
+                                              "password":  "-",
+                                              "proxied":  "-",
+                                              "orig_fuids":  "-",
+                                              "orig_filenames":  "-",
+                                              "orig_mime_types":  "-",
+                                              "resp_fuids":  "F2dEDi2Hh4WY9YgFkb",
+                                              "resp_filenames":  "-",
+                                              "resp_mime_types":  "text/json"
+                                          }
+                                      ]
+                 }
+}

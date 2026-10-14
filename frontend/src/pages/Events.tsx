@@ -1,48 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { fetchEvents, fetchIncidentTimeline } from "../api/config";
 import { CorrelatedEvent, AttackFlowStep, IncidentTimeline, TimelineItem } from "../types";
+import { getSeverityStyle, getVectorStyle, formatTimestamp } from "../lib/design-tokens";
+import { ShieldAlert, ChevronDown, Activity, Clock, Target, Hash } from "lucide-react";
 
-const SEV_COLOR: Record<number | string, string> = {
-  3: "#ef4444", 2: "#f59e0b", 1: "#10b981",
-  Alta: "#ef4444", Media: "#f59e0b", Baja: "#10b981", Crítica: "#dc2626",
-};
-
-const SEV_BG: Record<number | string, string> = {
-  3: "rgba(239,68,68,0.1)", 2: "rgba(245,158,11,0.1)", 1: "rgba(16,185,129,0.1)",
-  Alta: "rgba(239,68,68,0.1)", Media: "rgba(245,158,11,0.1)", Baja: "rgba(16,185,129,0.1)", Crítica: "rgba(220,38,38,0.15)",
-};
-
-const SEV_TEXT: Record<number, string> = {
-  3: "ALTA", 2: "MEDIA", 1: "BAJA", 4: "CRÍTICA"
-};
-
-const VECTOR_STYLE: Record<string, { bg: string, color: string, border: string, label: string }> = {
-  Red: { bg: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "#0284c7", label: "RED / ZEEK" },
-  Network: { bg: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "#0284c7", label: "RED / ZEEK" },
-  Endpoint: { bg: "rgba(192, 132, 252, 0.15)", color: "#c084fc", border: "#9333ea", label: "ENDPOINT / EDR" },
-  Email: { bg: "rgba(251, 146, 60, 0.15)", color: "#fb923c", border: "#ea580c", label: "EMAIL / OSINT" },
-};
-
-function getVectorStyle(vectorName: string = "") {
-  return VECTOR_STYLE[vectorName] || {
-    bg: "rgba(148, 163, 184, 0.15)",
-    color: "#94a3b8",
-    border: "#64748b",
-    label: vectorName.toUpperCase() || "DESCONOCIDO"
-  };
-}
-
-function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, startExpanded: boolean }) {
+function AccordionEvent({
+  event,
+  startExpanded,
+}: {
+  event: CorrelatedEvent;
+  startExpanded: boolean;
+}) {
   const [expanded, setExpanded] = useState(startExpanded);
   const [timelineData, setTimelineData] = useState<IncidentTimeline | null>(null);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
+
+  const sevStyle = getSeverityStyle(event.severity);
+  const isOpen = event.status === "Abierto";
 
   useEffect(() => {
     if (expanded && !timelineData) {
       setLoadingTimeline(true);
       fetchIncidentTimeline(event.id)
         .then((data: any) => {
-          // Si el endpoint retorna directamente la lista de pasos o un objeto contenedor
           if (Array.isArray(data)) {
             setTimelineData({
               id_evento_correlacionado: event.id,
@@ -53,8 +33,10 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
               severidad_global: event.severity,
               probabilidad_global: event.probability,
               total_pasos: data.length,
-              vectores_involucrados: Array.from(new Set(data.map((d: any) => d.vector || d.layer).filter(Boolean))),
-              timeline: data
+              vectores_involucrados: Array.from(
+                new Set(data.map((d: any) => d.vector || d.layer).filter(Boolean))
+              ),
+              timeline: data,
             });
           } else {
             setTimelineData(data);
@@ -62,176 +44,191 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
           setLoadingTimeline(false);
         })
         .catch((err) => {
-          console.warn("[TIMELINE] No se pudo cargar timeline desde API, usando attack_flow local:", err);
+          console.warn("[TIMELINE] Usando attack_flow local:", err);
           setLoadingTimeline(false);
         });
     }
   }, [expanded, event.id, timelineData]);
 
-  const items: Array<TimelineItem | AttackFlowStep> = timelineData?.timeline && timelineData.timeline.length > 0
-    ? timelineData.timeline
-    : (event.attack_flow || []);
+  const items: Array<TimelineItem | AttackFlowStep> =
+    timelineData?.timeline && timelineData.timeline.length > 0
+      ? timelineData.timeline
+      : event.attack_flow || [];
 
   return (
-    <div style={{
-      background: "var(--bg3)",
-      border: `1px solid ${expanded ? SEV_COLOR[event.severity] : "var(--border)"}`,
-      borderRadius: "8px",
-      marginBottom: "12px",
-      overflow: "hidden",
-      transition: "border 0.2s"
-    }}>
-      {/* Header Row */}
-      <div 
+    <div
+      className={`rounded-xl border transition-all mb-3 overflow-hidden shadow-sm ${
+        expanded
+          ? "bg-slate-900 border-indigo-500/50 shadow-indigo-500/5"
+          : "bg-slate-900/80 border-slate-800/80 hover:border-slate-700"
+      }`}
+    >
+      {/* Cabecera del Incidente */}
+      <div
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center justify-between"
-        style={{
-          padding: "12px 16px",
-          cursor: "pointer",
-          background: expanded ? "rgba(255,255,255,0.03)" : "transparent",
-          borderLeft: `4px solid ${SEV_COLOR[event.severity]}`
-        }}
+        className="flex items-center justify-between p-4 cursor-pointer select-none bg-slate-950/40 hover:bg-slate-800/30 transition-colors"
       >
-        <div className="flex items-center gap-4">
-          <div style={{
-            background: SEV_BG[event.severity], color: SEV_COLOR[event.severity],
-            padding: "4px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: "bold"
-          }}>
-            {SEV_TEXT[event.severity] || "DESC"}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#fff", margin: 0 }}>
-                Evento Correlacionado en {event.target_node}
+        <div className="flex items-center gap-3.5 min-w-0 pr-3">
+          {/* Badge de Severidad */}
+          <span className={`text-[10px] font-bold font-mono px-2.5 py-1 rounded-md flex-shrink-0 ${sevStyle.badgeClass}`}>
+            {sevStyle.label}
+          </span>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-100 truncate">
+                Incidente en <span className="text-sky-400 font-mono">{event.target_node}</span>
               </h3>
-              {timelineData?.vectores_involucrados && timelineData.vectores_involucrados.map(v => {
-                const vs = getVectorStyle(v);
-                return (
-                  <span key={v} style={{
-                    background: vs.bg, color: vs.color, border: `1px solid ${vs.border}`,
-                    padding: "2px 6px", borderRadius: "4px", fontSize: "9px", fontWeight: 700
-                  }}>
-                    {vs.label}
-                  </span>
-                );
-              })}
+
+              {timelineData?.vectores_involucrados &&
+                timelineData.vectores_involucrados.map((v) => {
+                  const vs = getVectorStyle(v);
+                  return (
+                    <span
+                      key={v}
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${vs.badgeClass}`}
+                    >
+                      {vs.label}
+                    </span>
+                  );
+                })}
             </div>
-            <span style={{ fontSize: "11px", color: "var(--txt3)" }}>
-              ID: {event.id} • Iniciado: {event.start_time.replace("T", " ").split(".")[0]}
-              {event.probability ? ` • Probabilidad: ${(event.probability * 100).toFixed(1)}%` : ""}
-            </span>
+
+            <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 font-mono flex-wrap">
+              <span className="text-slate-500">ID: {event.id}</span>
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <Clock size={12} className="text-slate-500" />
+                {formatTimestamp(event.start_time)}
+              </span>
+              {event.probability !== undefined && (
+                <>
+                  <span>·</span>
+                  <span className="text-indigo-400 font-semibold">
+                    Probabilidad: {(event.probability * 100).toFixed(0)}%
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span style={{ 
-            fontSize: "11px", fontWeight: 600,
-            color: event.status === "Abierto" ? "#ef4444" : "var(--txt3)" 
-          }}>
+
+        {/* Estado y Chevron */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span
+            className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full uppercase tracking-wider ${
+              isOpen
+                ? "bg-red-500/10 text-red-400 border border-red-500/30"
+                : "bg-slate-800 text-slate-400 border border-slate-700"
+            }`}
+          >
             {event.status}
           </span>
-          <span style={{ color: "var(--txt3)", fontSize: "12px", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-            ▼
-          </span>
+          <div
+            className={`text-slate-400 transition-transform duration-200 ${
+              expanded ? "rotate-180 text-indigo-400" : ""
+            }`}
+          >
+            <ChevronDown size={18} />
+          </div>
         </div>
       </div>
 
-      {/* Expanded Content (Timeline) */}
+      {/* Contenido Desplegable (Línea de Tiempo Forense) */}
       {expanded && (
-        <div style={{ padding: "16px", borderTop: "1px solid var(--border)", background: "var(--bg2)" }}>
-          <div className="flex justify-between items-center mb-3">
-            <h4 style={{ fontSize: "12px", fontWeight: 600, color: "var(--txt2)", margin: 0, textTransform: "uppercase" }}>
-              Línea de Tiempo Forense Multi-Vector ({items.length} eventos cronológicos)
+        <div className="p-4 sm:p-5 border-t border-slate-800/80 bg-slate-950/50">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800/60">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <Activity size={14} className="text-indigo-400" />
+              <span>Secuencia de Pasos Forenses Multi-Vector ({items.length})</span>
             </h4>
             {loadingTimeline && (
-              <span style={{ fontSize: "11px", color: "var(--txt3)" }}>Sincronizando timeline...</span>
+              <span className="text-xs text-indigo-400 font-mono animate-pulse">
+                Sincronizando timeline...
+              </span>
             )}
           </div>
 
           {items.length === 0 ? (
-            <div style={{ color: "var(--txt3)", fontSize: "12px", padding: "12px 0", textAlign: "center" }}>
-              No hay pasos secuenciales registrados en este incidente.
+            <div className="text-center py-6 text-slate-500 text-xs">
+              No hay eventos secuenciales registrados en este incidente.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", position: "relative" }}>
+            <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-800">
               {items.map((step: any, i: number) => {
                 const vectorName = step.vector || step.layer || "Desconocido";
                 const vs = getVectorStyle(vectorName);
-                const stepSev = step.severidad || "Media";
+                const stepSev = getSeverityStyle(step.severidad);
 
                 return (
-                  <div key={i} className="flex gap-4 items-start relative">
-                    {/* Linea vertical conectora */}
-                    {i !== items.length - 1 && (
-                      <div style={{ position: "absolute", left: "15px", top: "28px", bottom: "-16px", width: "2px", background: "var(--border)" }} />
-                    )}
-                    
-                    {/* Circulo del step */}
-                    <div style={{
-                      width: "32px", height: "32px", borderRadius: "50%",
-                      background: vs.bg,
-                      border: `2px solid ${vs.border}`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "12px", fontWeight: "bold", color: vs.color,
-                      zIndex: 1
-                    }}>
+                  <div key={i} className="relative flex items-start gap-3 group">
+                    {/* Indicador de paso en la línea vertical */}
+                    <div className="absolute -left-6 mt-1 flex items-center justify-center w-5 h-5 rounded-full bg-slate-900 border-2 border-indigo-500 text-[10px] font-bold text-indigo-300 font-mono shadow-sm">
                       {i + 1}
                     </div>
-                    
-                    {/* Detalle */}
-                    <div style={{ flex: 1, background: "var(--bg3)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border)" }}>
-                      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <span style={{
-                            background: vs.bg, color: vs.color, border: `1px solid ${vs.border}`,
-                            padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.5px"
-                          }}>
+
+                    {/* Tarjeta del paso */}
+                    <div className="flex-1 p-3.5 rounded-lg bg-slate-900/90 border border-slate-800/80 group-hover:border-slate-700 transition-colors">
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${vs.badgeClass}`}>
                             {vs.label}
                           </span>
-                          
+
                           {step.mitre_tactic && (
-                            <span style={{ background: "rgba(255,255,255,0.06)", color: "#e2e8f0", padding: "2px 6px", borderRadius: "4px", fontSize: "10px" }}>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 uppercase">
                               {step.mitre_tactic}
                             </span>
                           )}
 
                           {step.mitre_technique_id && (
-                            <span style={{ background: "rgba(167, 139, 250, 0.15)", color: "#a78bfa", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "bold" }}>
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                               {step.mitre_technique_id}
                             </span>
                           )}
 
                           {step.mitre_software_id && (
-                            <span style={{ background: "rgba(236, 72, 153, 0.15)", color: "#f472b6", border: "1px solid rgba(236, 72, 153, 0.4)", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "bold" }}>
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-pink-500/15 text-pink-300 border border-pink-500/30">
                               TOOL: {step.mitre_software_id}
                             </span>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span style={{
-                            background: SEV_BG[stepSev] || "var(--bg3)", color: SEV_COLOR[stepSev] || "#fff",
-                            padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "bold"
-                          }}>
-                            {stepSev}
+                        <div className="flex items-center gap-2 font-mono text-[10px]">
+                          <span className={`px-1.5 py-0.5 rounded font-bold ${stepSev.badgeClass}`}>
+                            {stepSev.label}
                           </span>
-                          <span style={{ fontSize: "10px", color: "var(--txt3)", fontFamily: "monospace" }}>
-                            {step.timestamp ? step.timestamp.replace("T", " ").split(".")[0] : ""}
+                          <span className="text-slate-500">
+                            {formatTimestamp(step.timestamp)}
                           </span>
                         </div>
                       </div>
 
-                      <p style={{ fontSize: "12px", color: "#f1f5f9", margin: "0 0 6px 0", lineHeight: 1.4 }}>
+                      <p className="text-xs text-slate-200 leading-relaxed">
                         {step.descripcion || step.description}
                       </p>
 
-                      {/* Metadatos adicionales forenses */}
+                      {/* Metadatos Forenses */}
                       {(step.ip_destino || step.dest_ip || step.file_hash) && (
-                        <div style={{ fontSize: "11px", color: "var(--txt3)", display: "flex", gap: "12px", flexWrap: "wrap", borderTop: "1px dashed var(--border)", paddingTop: "6px" }}>
+                        <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center gap-4 text-xs font-mono text-slate-400 flex-wrap">
                           {(step.ip_destino || step.dest_ip) && (
-                            <span>Destino: <strong style={{ color: "#e2e8f0" }}>{step.ip_destino || step.dest_ip}</strong></span>
+                            <div className="flex items-center gap-1.5">
+                              <Target size={12} className="text-sky-400" />
+                              <span>Destino:</span>
+                              <span className="text-slate-200 font-bold">
+                                {step.ip_destino || step.dest_ip}
+                              </span>
+                            </div>
                           )}
+
                           {step.file_hash && (
-                            <span>Hash: <code style={{ color: "#38bdf8" }}>{step.file_hash.substring(0, 16)}...</code></span>
+                            <div className="flex items-center gap-1.5">
+                              <Hash size={12} className="text-indigo-400" />
+                              <span>Hash:</span>
+                              <code className="text-indigo-300 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[11px]">
+                                {step.file_hash.substring(0, 18)}...
+                              </code>
+                            </div>
                           )}
                         </div>
                       )}
@@ -250,6 +247,7 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
 export function Events({ eventoSeleccionado }: { eventoSeleccionado?: string | null }) {
   const [eventos, setEventos] = useState<CorrelatedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "abiertos" | "cerrados">("todos");
 
   useEffect(() => {
     async function loadData() {
@@ -263,45 +261,102 @@ export function Events({ eventoSeleccionado }: { eventoSeleccionado?: string | n
       setLoading(false);
     }
     loadData();
+    const interval = setInterval(loadData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
+  const eventosFiltrados = useMemo(() => {
+    return eventos
+      .filter((ev) => {
+        if (filtroEstado === "abiertos") return ev.status === "Abierto";
+        if (filtroEstado === "cerrados") return ev.status !== "Abierto";
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.status === "Abierto" && b.status !== "Abierto") return -1;
+        if (b.status === "Abierto" && a.status !== "Abierto") return 1;
+        return new Date(b.last_update).getTime() - new Date(a.last_update).getTime();
+      });
+  }, [eventos, filtroEstado]);
+
+  const conteo = useMemo(() => {
+    return {
+      todos: eventos.length,
+      abiertos: eventos.filter(e => e.status === "Abierto").length,
+      cerrados: eventos.filter(e => e.status !== "Abierto").length,
+    };
+  }, [eventos]);
+
   return (
-    <div className="p-4 sm:p-6 flex flex-col gap-5 h-full">
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#fff", letterSpacing: "-0.3px" }}>
-          Incidentes Correlacionados
-        </h1>
-        <p style={{ fontSize: "12px", color: "var(--txt2)", marginTop: "2px" }}>
-          Correlación forense multi-capa: Red (Zeek), Endpoint (Sysmon/EDR) y Email integrados con AlienVault OTX y MITRE ATT&CK
-        </p>
+    <div className="p-4 sm:p-6 flex flex-col gap-4 max-w-7xl mx-auto w-full h-full min-h-0">
+      {/* Encabezado contextual */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-slate-800/60 flex-shrink-0">
+        <div>
+          <h1 className="text-xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
+            <span>Incidentes Correlacionados</span>
+            <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              {eventos.length} incidentes
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Motor de correlación multi-capa: reconstrucción secuencial de vectores y progresión de ataque
+          </p>
+        </div>
+
+        {/* Pestañas de filtrado de estado */}
+        <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
+          <button
+            onClick={() => setFiltroEstado("todos")}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+              filtroEstado === "todos"
+                ? "bg-slate-800 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            Todos ({conteo.todos})
+          </button>
+          <button
+            onClick={() => setFiltroEstado("abiertos")}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+              filtroEstado === "abiertos"
+                ? "bg-red-500/20 text-red-300 border border-red-500/30 shadow-sm"
+                : "text-slate-400 hover:text-red-400"
+            }`}
+          >
+            Abiertos ({conteo.abiertos})
+          </button>
+          <button
+            onClick={() => setFiltroEstado("cerrados")}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+              filtroEstado === "cerrados"
+                ? "bg-slate-800 text-slate-300 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            Cerrados ({conteo.cerrados})
+          </button>
+        </div>
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto" }} className="custom-scrollbar">
-        {loading ? (
-          <div style={{ color: "var(--txt3)", fontSize: "13px" }}>Cargando eventos correlacionados...</div>
-        ) : (
-          <div className="flex flex-col">
-            {eventos.length === 0 ? (
-              <div style={{ color: "var(--txt3)", fontSize: "13px", textAlign: "center", padding: "40px 0" }}>
-                No hay incidentes correlacionados registrados.
-              </div>
-            ) : (
-              // Orden: Abiertos primero, luego por fecha descendente
-              eventos.sort((a, b) => {
-                if (a.status === "Abierto" && b.status !== "Abierto") return -1;
-                if (b.status === "Abierto" && a.status !== "Abierto") return 1;
-                return new Date(b.last_update).getTime() - new Date(a.last_update).getTime();
-              }).map(ev => (
-                <AccordionEvent 
-                  key={ev.id} 
-                  event={ev} 
-                  startExpanded={eventoSeleccionado === ev.id}
-                />
-              ))
-            )}
+      {/* Lista de Incidentes */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pr-1">
+        {loading && eventos.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 text-xs">
+            Cargando incidentes correlacionados...
           </div>
+        ) : eventosFiltrados.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-500 text-xs border border-dashed border-slate-800 rounded-xl bg-slate-900/40">
+            <ShieldAlert size={32} className="opacity-30 mb-2" />
+            <p>No hay incidentes correlacionados bajo el filtro actual.</p>
+          </div>
+        ) : (
+          eventosFiltrados.map((ev) => (
+            <AccordionEvent
+              key={ev.id}
+              event={ev}
+              startExpanded={eventoSeleccionado === ev.id}
+            />
+          ))
         )}
       </div>
     </div>
