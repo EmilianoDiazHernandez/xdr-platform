@@ -149,7 +149,7 @@ Secciones del Sidebar por rol: Analista → General / Detección / Reportes; Adm
 - `src/components/Header.tsx`: mostrar nombre + rol legible y botón "Cerrar sesión" (icono `LogOut`). Tras logout mostrar "Sesión cerrada correctamente." en el Login.
 **Aceptación:** login/logout funcionan en modo mock con los 3 roles; recargar la página conserva la sesión; sesión vencida regresa a Login; usuario inactivo no entra.
 
-### [ ] T3 — RBAC en navegación y layout (P0)
+### [x] T3 — RBAC en navegación y layout (P0)
 **Leer:** `src/App.tsx`, `src/components/Sidebar.tsx`, `src/auth/*`.
 **Crear:** `src/auth/permissions.ts` con:
 - `ACCESS: Record<PageId, readonly Role[]>` (§3), `canAccess(role, page): boolean`, `defaultPageFor(role): PageId`, `MENU_BY_ROLE: Record<Role, MenuSection[]>` (secciones, ids, etiquetas, iconos lucide).
@@ -231,4 +231,5 @@ Documentar aquí; no implementar salvo instrucción explícita:
 
 <!-- Formato: YYYY-MM-DD · Tarea · Resumen en 1 línea · Pendientes/bloqueos -->
 2026-10-14 · T1 · types/auth.ts, api/client.ts (Bearer, 401/403, timeout 10s/20s), config.ts con env + tipos, ReportButton con apiBlob y nombre RF15, .env.example, vite-env.d.ts tipado · Topology.tsx espera un array del timeline pero el tipo IncidentTimeline es objeto (posible bug previo; revisar en T4). Commit b081bbc.
-2026-10-14 · T2 · authService (mock/api), AuthContext (sessionStorage xdr.session, expiración 8h, registro en client.ts), Login, logout en Header, mocks/usuarios.ts compartido para T5; probado manualmente con los 3 roles + inactivo · Validar con el equipo: mensaje genérico para cuenta inactiva (RN10) vs. literal del CU, texto de sesión expirada.
+2026-10-14 · T2 · authService (mock/api), AuthContext (sessionStorage xdr.session, expiración 8h, registro en client.ts), Login, logout en Header, mocks/usuarios.ts compartido para T5; probado manualmente con los 3 roles + inactivo · Validar con el equipo: mensaje genérico para cuenta inactiva (RN10) vs. literal del CU, texto de sesión expirada. Commit 926759e.
+2026-10-14 · T3 · permissions.ts (ACCESS, canAccess, defaultPageFor, MENU_BY_ROLE, canSeeTechnicalStatus), Forbidden 403, Sidebar por rol con rol bajo el logo, App con PageId y guarda canAccess, StatusBar oculto al auditor; onNavegar tipado con PageId en Home/AlertList; probado manualmente con los 3 roles · Vistas pendientes (Placeholder) hasta T4–T6.

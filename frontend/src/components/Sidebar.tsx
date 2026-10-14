@@ -1,48 +1,17 @@
 import {
-  LayoutDashboard,
-  Network,
-  Bell,
-  FileText,
-  Settings,
-  CalendarDays,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
   X,
 } from "lucide-react";
-
-const MENU = [
-  {
-    section: "General",
-    items: [
-      { id: "inicio",    label: "Inicio",    Icon: LayoutDashboard, color: "#10b981" },
-      { id: "topologia", label: "Topología", Icon: Network,          color: "#64748b" },
-    ],
-  },
-  {
-    section: "Detección",
-    items: [
-      { id: "alertas", label: "Alertas", Icon: Bell,         color: "#f59e0b" },
-      { id: "eventos", label: "Eventos", Icon: CalendarDays, color: "#64748b" },
-    ],
-  },
-  {
-    section: "Reportes",
-    items: [
-      { id: "reportes", label: "Reportes PDF", Icon: FileText, color: "#64748b" },
-    ],
-  },
-  {
-    section: "Sistema",
-    items: [
-      { id: "configuracion", label: "Configuración", Icon: Settings, color: "#64748b" },
-    ],
-  },
-];
+import { useAuth } from "../auth/AuthContext";
+import { MENU_BY_ROLE } from "../auth/permissions";
+import { ROLE_LABEL } from "../auth/roles";
+import type { PageId } from "../types";
 
 interface SidebarProps {
-  activo: string;
-  onNavegar: (id: string) => void;
+  activo: PageId;
+  onNavegar: (id: PageId) => void;
   abiertoMobile?: boolean;
   onCerrarMobile?: () => void;
   colapsadoDesktop?: boolean;
@@ -57,7 +26,10 @@ export function Sidebar({
   colapsadoDesktop = false,
   onToggleColapsoDesktop,
 }: SidebarProps) {
-  const handleItemClick = (id: string) => {
+  const { session } = useAuth();
+  const menu = session ? MENU_BY_ROLE[session.user.role] : [];
+
+  const handleItemClick = (id: PageId) => {
     onNavegar(id);
     if (onCerrarMobile) {
       onCerrarMobile();
@@ -110,8 +82,8 @@ export function Sidebar({
                 <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", lineHeight: 1 }}>
                   XDR Platform
                 </p>
-                <p style={{ fontSize: "9px", color: "var(--txt3)", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "3px" }}>
-                  v1.0.0
+                <p className="truncate" style={{ fontSize: "9px", color: "var(--txt3)", letterSpacing: "1px", textTransform: "uppercase", marginTop: "3px" }}>
+                  {session ? ROLE_LABEL[session.user.role] : "v1.0.0"}
                 </p>
               </div>
             )}
@@ -129,7 +101,7 @@ export function Sidebar({
 
         {/* Lista de Navegación */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
-          {MENU.map(({ section, items }) => (
+          {menu.map(({ section, items }) => (
             <div key={section} className="mb-2">
               {!colapsadoDesktop ? (
                 <p

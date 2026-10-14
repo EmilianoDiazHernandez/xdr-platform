@@ -5,15 +5,23 @@ import { Home }    from "./pages/Home";
 import { Topology } from "./pages/Topology";
 import { Alerts } from "./pages/Alerts";
 import { Login } from "./pages/Login";
+import { Forbidden } from "./pages/Forbidden";
 import { useAuth } from "./auth/AuthContext";
+import { canAccess, canSeeTechnicalStatus, defaultPageFor } from "./auth/permissions";
+import type { PageId, Role } from "./types";
 
-const TITULOS: Record<string, string> = {
-  inicio:        "Inicio",
-  topologia:     "Topología de red",
-  alertas:       "Alertas",
-  eventos:       "Eventos",
-  reportes:      "Reportes PDF",
-  configuracion: "Configuración",
+const TITULOS: Record<PageId, string> = {
+  "inicio":             "Inicio",
+  "topologia":          "Topología de red",
+  "alertas":            "Alertas",
+  "eventos":            "Eventos",
+  "anomalias":          "Anomalías",
+  "reportes":           "Reportes PDF",
+  "admin-usuarios":     "Usuarios",
+  "admin-servicios":    "Estado de servicios",
+  "admin-logs":         "Logs del sistema",
+  "ejecutivo":          "Resumen ejecutivo",
+  "reportes-generados": "Reportes",
 };
 
 function Placeholder({ titulo }: { titulo: string }) {
@@ -65,17 +73,17 @@ function StatusBar() {
 }
 
 export default function App() {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Dashboard /> : <Login />;
+  const { session } = useAuth();
+  return session ? <Dashboard role={session.user.role} /> : <Login />;
 }
 
-function Dashboard() {
-  const [paginaActiva, setPaginaActiva] = useState("inicio");
+function Dashboard({ role }: { role: Role }) {
+  const [paginaActiva, setPaginaActiva] = useState<PageId>(() => defaultPageFor(role));
   const [eventoSeleccionado, setEventoSeleccionado] = useState<string | null>(null);
   const [sidebarMobileAbierto, setSidebarMobileAbierto] = useState(false);
   const [sidebarDesktopColapsado, setSidebarDesktopColapsado] = useState(false);
 
-  const handleNavegar = (pagina: string, param?: string) => {
+  const handleNavegar = (pagina: PageId, param?: string) => {
     setPaginaActiva(pagina);
     setSidebarMobileAbierto(false);
     if (param) setEventoSeleccionado(param);
@@ -83,6 +91,7 @@ function Dashboard() {
   };
 
   const renderPagina = () => {
+    if (!canAccess(role, paginaActiva)) return <Forbidden onVolver={handleNavegar} />;
     if (paginaActiva === "inicio") return <Home onNavegar={handleNavegar} />;
     if (paginaActiva === "topologia") return <Topology />;
     if (paginaActiva === "alertas") return <Alerts eventoSeleccionado={eventoSeleccionado} />;
@@ -111,7 +120,7 @@ function Dashboard() {
         <main className="flex-1 overflow-y-auto min-w-0 custom-scrollbar">
           {renderPagina()}
         </main>
-        <StatusBar />
+        {canSeeTechnicalStatus(role) && <StatusBar />}
       </div>
     </div>
   );

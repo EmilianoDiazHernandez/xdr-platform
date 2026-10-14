@@ -4,10 +4,10 @@ import { StatusPanel }  from "../components/StatusPanel";
 import { AlertList }    from "../components/AlertList";
 import { ReportButton } from "../components/ReportButton";
 import { AlertChart }   from "../components/AlertChart";
-import { Alerta, EstadoServicio, CorrelatedEvent } from "../types";
+import { Alerta, EstadoServicio, CorrelatedEvent, PageId } from "../types";
 import { fetchAlertas, fetchHealth, fetchEvents } from "../api/config";
 
-export function Home({ onNavegar }: { onNavegar?: (pagina: string, param?: string) => void }) {
+export function Home({ onNavegar }: { onNavegar?: (pagina: PageId, param?: string) => void }) {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [servicios, setServicios] = useState<EstadoServicio[]>([]);
 
