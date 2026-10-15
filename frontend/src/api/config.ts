@@ -1,12 +1,15 @@
-import { apiRequest } from "./client";
+import { apiRequest, type ApiRequestInit } from "./client";
 import type { Alerta, CorrelatedEvent, IncidentTimeline, KillChainStep, NodeAlert, TopologyData } from "../types";
 
 export const API_BASE_URL      = import.meta.env.VITE_API_BASE_URL      ?? "http://localhost:8000/api/v1";
 export const REPORT_BASE_URL   = import.meta.env.VITE_REPORT_BASE_URL   ?? "http://localhost:8001/api/v1";
 export const TOPOLOGY_BASE_URL = import.meta.env.VITE_TOPOLOGY_BASE_URL ?? "http://localhost:8002/api/v1";
 
-// /health vive en la raíz del servicio, no bajo /api/v1
-const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+// /health vive en la raíz de cada servicio, no bajo /api/v1
+const raizDe = (url: string) => url.replace(/\/api\/v1\/?$/, "");
+export const API_ROOT_URL      = raizDe(API_BASE_URL);
+export const REPORT_ROOT_URL   = raizDe(REPORT_BASE_URL);
+export const TOPOLOGY_ROOT_URL = raizDe(TOPOLOGY_BASE_URL);
 
 interface EstadoCapa {
   activa: boolean;
@@ -47,8 +50,8 @@ export async function fetchKillChain(id: string): Promise<KillChainStep[]> {
   return Array.isArray(pasos) ? pasos.filter(isKillChainStep) : [];
 }
 
-export function fetchHealth(): Promise<HealthResponse> {
-  return apiRequest<HealthResponse>(API_ROOT_URL, "/health");
+export function fetchHealth(init?: ApiRequestInit): Promise<HealthResponse> {
+  return apiRequest<HealthResponse>(API_ROOT_URL, "/health", init);
 }
 
 export function fetchTopology(): Promise<TopologyData> {
