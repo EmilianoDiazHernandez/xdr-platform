@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { KPICards }     from "../components/KPICards";
 import { StatusPanel }  from "../components/StatusPanel";
 import { AlertList }    from "../components/AlertList";
-import { ReportButton } from "../components/ReportButton";
 import { AlertChart }   from "../components/AlertChart";
 import { Alerta, EstadoServicio, CorrelatedEvent, PageId } from "../types";
 import { fetchAlertas, fetchHealth, fetchEvents } from "../api/config";
@@ -76,13 +75,6 @@ export function Home({ onNavegar }: { onNavegar?: (pagina: PageId, param?: strin
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px] items-start">
         <AlertList alertas={alertas} onNavegar={onNavegar} />
         <AlertChart alertas={alertas} />
-      </div>
-
-      {/* Botón de reporte al fondo */}
-      <div className="flex justify-end w-full">
-        <div className="w-full sm:w-[260px]">
-          <ReportButton />
-        </div>
       </div>
 
     </div>

@@ -67,7 +67,7 @@ el control real es el HTTP 403 del backend (RN06, RN07, RN12).
 
 | Rol (`Role`) | Vista de aterrizaje | Vistas disponibles |
 |---|---|---|
-| `security_analyst` — Analista de Seguridad | Inicio | Inicio, Topología, Alertas, Eventos, Anomalías, Reportes PDF |
+| `security_analyst` — Analista de Seguridad | Inicio | Inicio, Topología, Alertas, Anomalías, Reportes PDF |
 | `sys_admin` — Administrador de Sistemas | Estado de servicios | Usuarios, Estado de servicios, Logs del sistema |
 | `auditor` — Directivo / Auditor | Resumen ejecutivo | Resumen ejecutivo, Reportes |
 

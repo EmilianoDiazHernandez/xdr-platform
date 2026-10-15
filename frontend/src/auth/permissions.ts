@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Network,
   Bell,
-  CalendarDays,
   Radar,
   FileText,
   Users,
@@ -20,7 +19,6 @@ export const ACCESS: Record<PageId, readonly Role[]> = {
   "inicio":             ["security_analyst"],
   "topologia":          ["security_analyst"],
   "alertas":            ["security_analyst"],
-  "eventos":            ["security_analyst"],
   "anomalias":          ["security_analyst"],
   "reportes":           ["security_analyst"],
   "admin-usuarios":     ["sys_admin"],
@@ -76,7 +74,6 @@ export const MENU_BY_ROLE: Record<Role, MenuSection[]> = {
       section: "Detección",
       items: [
         { id: "alertas",   label: "Alertas",   Icon: Bell,         color: "#f59e0b" },
-        { id: "eventos",   label: "Eventos",   Icon: CalendarDays, color: "#64748b" },
         { id: "anomalias", label: "Anomalías", Icon: Radar,        color: "#64748b" },
       ],
     },
