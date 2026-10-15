@@ -4,6 +4,8 @@ import { Header }  from "./components/Header";
 import { Home }    from "./pages/Home";
 import { Topology } from "./pages/Topology";
 import { Alerts } from "./pages/Alerts";
+import { Reports } from "./pages/Reports";
+import { Anomalies } from "./pages/Anomalies";
 import { Login } from "./pages/Login";
 import { Forbidden } from "./pages/Forbidden";
 import { useAuth } from "./auth/AuthContext";
@@ -95,6 +97,8 @@ function Dashboard({ role }: { role: Role }) {
     if (paginaActiva === "inicio") return <Home onNavegar={handleNavegar} />;
     if (paginaActiva === "topologia") return <Topology />;
     if (paginaActiva === "alertas") return <Alerts eventoSeleccionado={eventoSeleccionado} />;
+    if (paginaActiva === "anomalias") return <Anomalies />;
+    if (paginaActiva === "reportes") return <Reports />;
     return <Placeholder titulo={TITULOS[paginaActiva]} />;
   };
 

@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { Alerta, CorrelatedEvent, IncidentTimeline, TopologyData } from "../types";
+import type { Alerta, CorrelatedEvent, IncidentTimeline, KillChainStep, NodeAlert, TopologyData } from "../types";
 
 export const API_BASE_URL      = import.meta.env.VITE_API_BASE_URL      ?? "http://localhost:8000/api/v1";
 export const REPORT_BASE_URL   = import.meta.env.VITE_REPORT_BASE_URL   ?? "http://localhost:8001/api/v1";
@@ -29,6 +29,24 @@ export function fetchIncidentTimeline(id: string): Promise<IncidentTimeline> {
   return apiRequest<IncidentTimeline>(API_BASE_URL, `/eventos-correlacionados/${encodeURIComponent(id)}/timeline`);
 }
 
+function isKillChainStep(value: unknown): value is KillChainStep {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.timestamp === "string" && typeof v.vector === "string"
+      && typeof v.severidad === "string" && typeof v.descripcion === "string";
+}
+
+// El endpoint de timeline puede responder con la lista de pasos o con el objeto
+// IncidentTimeline ({ timeline: [...] }); aquí se normalizan ambas formas.
+export async function fetchKillChain(id: string): Promise<KillChainStep[]> {
+  const data = await apiRequest<unknown>(API_BASE_URL, `/eventos-correlacionados/${encodeURIComponent(id)}/timeline`);
+  const pasos: unknown =
+    typeof data === "object" && data !== null && !Array.isArray(data)
+      ? (data as Record<string, unknown>).timeline
+      : data;
+  return Array.isArray(pasos) ? pasos.filter(isKillChainStep) : [];
+}
+
 export function fetchHealth(): Promise<HealthResponse> {
   return apiRequest<HealthResponse>(API_ROOT_URL, "/health");
 }
@@ -41,6 +59,6 @@ export function fetchEvents(): Promise<CorrelatedEvent[]> {
   return apiRequest<CorrelatedEvent[]>(TOPOLOGY_BASE_URL, "/topology/events");
 }
 
-export function fetchNodeAlerts(deviceId: string): Promise<Alerta[]> {
-  return apiRequest<Alerta[]>(TOPOLOGY_BASE_URL, `/topology/node_alerts/${encodeURIComponent(deviceId)}`);
+export function fetchNodeAlerts(deviceId: string): Promise<NodeAlert[]> {
+  return apiRequest<NodeAlert[]>(TOPOLOGY_BASE_URL, `/topology/node_alerts/${encodeURIComponent(deviceId)}`);
 }

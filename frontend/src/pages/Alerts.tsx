@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Download, FilterX } from "lucide-react";
 import { fetchEvents, fetchAlertas, fetchIncidentTimeline } from "../api/config";
-import { CorrelatedEvent, Alerta, AttackFlowStep, IncidentTimeline, TimelineItem } from "../types";
+import { CorrelatedEvent, Alerta, AttackFlowStep, IncidentTimeline, NivelSeveridad, TimelineItem } from "../types";
+import { fechaDe, formatFechaHora, sufijoArchivo } from "../lib/format";
+import { generarCsv } from "../lib/csv";
+import { descargarBlob } from "../lib/download";
 
 const SEV_COLOR: Record<number | string, string> = {
   3: "#ef4444", 2: "#f59e0b", 1: "#10b981",
@@ -32,6 +36,102 @@ function getVectorStyle(vectorName: string = "") {
   };
 }
 
+/* ─── Pasos del timeline: TimelineItem (API) o AttackFlowStep (attack_flow local) ─── */
+
+type PasoTimeline = TimelineItem | AttackFlowStep;
+
+interface PasoNormalizado {
+  vector:              string;
+  descripcion?:        string;
+  severidad:           string | number;
+  timestamp?:          string;
+  mitre_tactic?:       string | null;
+  mitre_technique_id?: string | null;
+  mitre_software_id?:  string | null;
+  destino?:            string | null;
+  file_hash?:          string | null;
+}
+
+function esTimelineItem(paso: PasoTimeline): paso is TimelineItem {
+  return "step_order" in paso;
+}
+
+// Unifica los campos alternos: descripcion|description, vector|layer, ip_destino|dest_ip
+function normalizarPaso(paso: PasoTimeline): PasoNormalizado {
+  const comunes = {
+    severidad:          paso.severidad || "Media",
+    timestamp:          paso.timestamp,
+    mitre_tactic:       paso.mitre_tactic,
+    mitre_technique_id: paso.mitre_technique_id,
+    mitre_software_id:  paso.mitre_software_id,
+    file_hash:          paso.file_hash,
+  };
+  if (esTimelineItem(paso)) {
+    return { ...comunes, vector: paso.vector || "Desconocido", descripcion: paso.descripcion, destino: paso.ip_destino };
+  }
+  return { ...comunes, vector: paso.vector || paso.layer || "Desconocido", descripcion: paso.description, destino: paso.dest_ip };
+}
+
+/* ─── Filtros de alertas individuales (CU-06) ─── */
+
+const FILTROS_KEY = "xdr.filtros.alertas";
+const SEVERIDADES: readonly NivelSeveridad[] = ["Crítica", "Alta", "Media", "Baja"];
+
+interface FiltrosAlertas {
+  severidad: NivelSeveridad | "todas";
+  ip:        string;
+  desde:     string; // YYYY-MM-DD o ""
+  hasta:     string;
+}
+
+const FILTROS_VACIOS: FiltrosAlertas = { severidad: "todas", ip: "", desde: "", hasta: "" };
+
+function esSeveridadFiltro(v: unknown): v is FiltrosAlertas["severidad"] {
+  return v === "todas" || SEVERIDADES.some(s => s === v);
+}
+
+function leerFiltros(): FiltrosAlertas {
+  try {
+    const raw = sessionStorage.getItem(FILTROS_KEY);
+    if (!raw) return FILTROS_VACIOS;
+    const p: unknown = JSON.parse(raw);
+    if (typeof p !== "object" || p === null) return FILTROS_VACIOS;
+    const v = p as Record<string, unknown>;
+    return {
+      severidad: esSeveridadFiltro(v.severidad) ? v.severidad : "todas",
+      ip:        typeof v.ip === "string" ? v.ip : "",
+      desde:     typeof v.desde === "string" ? v.desde : "",
+      hasta:     typeof v.hasta === "string" ? v.hasta : "",
+    };
+  } catch {
+    return FILTROS_VACIOS;
+  }
+}
+
+function guardarFiltros(f: FiltrosAlertas): void {
+  try {
+    sessionStorage.setItem(FILTROS_KEY, JSON.stringify(f));
+  } catch {
+    // Almacenamiento no disponible: los filtros solo duran mientras la vista esté montada
+  }
+}
+
+const MSG_RANGO_INVALIDO = "La fecha de inicio no puede ser posterior a la fecha de fin.";
+const MSG_SIN_RESULTADOS = "No se encontraron alertas con los criterios seleccionados.";
+const MSG_SIN_EXPORTAR   = "Sin alertas para exportar con los filtros actuales.";
+
+const CSV_ENCABEZADOS = ["ID", "IP origen", "IP destino", "protocolo", "timestamp", "severidad", "descripción"] as const;
+
+const filtroLabelStyle: React.CSSProperties = {
+  display: "block", fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px",
+  textTransform: "uppercase", color: "var(--txt3)", marginBottom: "4px",
+};
+
+const filtroInputStyle: React.CSSProperties = {
+  background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px",
+  padding: "6px 10px", fontSize: "12px", color: "var(--txt)", outline: "none", colorScheme: "dark",
+};
+
 function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, startExpanded: boolean }) {
   const [expanded, setExpanded] = useState(startExpanded);
   const [timelineData, setTimelineData] = useState<IncidentTimeline | null>(null);
@@ -52,7 +152,7 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
     }
   }, [expanded, event.id, timelineData]);
 
-  const items: Array<TimelineItem | AttackFlowStep> = timelineData?.timeline && timelineData.timeline.length > 0
+  const items: PasoTimeline[] = timelineData?.timeline && timelineData.timeline.length > 0
     ? timelineData.timeline
     : (event.attack_flow || []);
 
@@ -66,7 +166,7 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
       transition: "border 0.2s"
     }}>
       {/* Header Row */}
-      <div 
+      <div
         onClick={() => setExpanded(!expanded)}
         className="flex items-center justify-between"
         style={{
@@ -107,9 +207,9 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <span style={{ 
+          <span style={{
             fontSize: "11px", fontWeight: 600,
-            color: event.status === "Abierto" ? "#ef4444" : "var(--txt3)" 
+            color: event.status === "Abierto" ? "#ef4444" : "var(--txt3)"
           }}>
             {event.status}
           </span>
@@ -137,10 +237,10 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", position: "relative" }}>
-              {items.map((step: any, i: number) => {
-                const vectorName = step.vector || step.layer || "Desconocido";
-                const vs = getVectorStyle(vectorName);
-                const stepSev = step.severidad || "Media";
+              {items.map((paso, i) => {
+                const step = normalizarPaso(paso);
+                const vs = getVectorStyle(step.vector);
+                const stepSev = step.severidad;
 
                 return (
                   <div key={i} className="flex gap-4 items-start relative">
@@ -148,7 +248,7 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
                     {i !== items.length - 1 && (
                       <div style={{ position: "absolute", left: "15px", top: "28px", bottom: "-16px", width: "2px", background: "var(--border)" }} />
                     )}
-                    
+
                     {/* Circulo del step */}
                     <div style={{
                       width: "32px", height: "32px", borderRadius: "50%",
@@ -160,7 +260,7 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
                     }}>
                       {i + 1}
                     </div>
-                    
+
                     {/* Detalle */}
                     <div style={{ flex: 1, background: "var(--bg3)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border)" }}>
                       <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
@@ -171,7 +271,7 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
                           }}>
                             {vs.label}
                           </span>
-                          
+
                           {step.mitre_tactic && (
                             <span style={{ background: "rgba(255,255,255,0.06)", color: "#e2e8f0", padding: "2px 6px", borderRadius: "4px", fontSize: "10px" }}>
                               {step.mitre_tactic}
@@ -205,14 +305,14 @@ function AccordionEvent({ event, startExpanded }: { event: CorrelatedEvent, star
                       </div>
 
                       <p style={{ fontSize: "12px", color: "#f1f5f9", margin: "0 0 6px 0", lineHeight: 1.4 }}>
-                        {step.descripcion || step.description}
+                        {step.descripcion}
                       </p>
 
                       {/* Metadatos adicionales forenses */}
-                      {(step.ip_destino || step.dest_ip || step.file_hash) && (
+                      {(step.destino || step.file_hash) && (
                         <div style={{ fontSize: "11px", color: "var(--txt3)", display: "flex", gap: "12px", flexWrap: "wrap", borderTop: "1px dashed var(--border)", paddingTop: "6px" }}>
-                          {(step.ip_destino || step.dest_ip) && (
-                            <span>Destino: <strong style={{ color: "#e2e8f0" }}>{step.ip_destino || step.dest_ip}</strong></span>
+                          {step.destino && (
+                            <span>Destino: <strong style={{ color: "#e2e8f0" }}>{step.destino}</strong></span>
                           )}
                           {step.file_hash && (
                             <span>Hash: <code style={{ color: "#38bdf8" }}>{step.file_hash.substring(0, 16)}...</code></span>
@@ -236,6 +336,8 @@ export function Alerts({ eventoSeleccionado }: { eventoSeleccionado: string | nu
   const [eventos, setEventos] = useState<CorrelatedEvent[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtros, setFiltros] = useState<FiltrosAlertas>(leerFiltros);
+  const [avisoExportar, setAvisoExportar] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -251,6 +353,57 @@ export function Alerts({ eventoSeleccionado }: { eventoSeleccionado: string | nu
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    guardarFiltros(filtros);
+  }, [filtros]);
+
+  useEffect(() => {
+    if (!avisoExportar) return;
+    const t = setTimeout(() => setAvisoExportar(null), 4000);
+    return () => clearTimeout(t);
+  }, [avisoExportar]);
+
+  const rangoInvalido = filtros.desde !== "" && filtros.hasta !== "" && filtros.desde > filtros.hasta;
+
+  const alertasFiltradas = useMemo(() => {
+    const ip = filtros.ip.trim().toLowerCase();
+    return alertas.filter(al => {
+      if (filtros.severidad !== "todas" && al.severidad !== filtros.severidad) return false;
+      if (ip && !al.ip_origen.toLowerCase().includes(ip)) return false;
+      // Con un rango inválido no se aplica el filtro de fechas
+      if (!rangoInvalido) {
+        const dia = fechaDe(al.timestamp);
+        if (filtros.desde && dia < filtros.desde) return false;
+        if (filtros.hasta && dia > filtros.hasta) return false;
+      }
+      return true;
+    });
+  }, [alertas, filtros, rangoInvalido]);
+
+  const hayFiltros = filtros.severidad !== "todas" || filtros.ip !== "" || filtros.desde !== "" || filtros.hasta !== "";
+
+  const actualizarFiltro = <K extends keyof FiltrosAlertas>(campo: K, valor: FiltrosAlertas[K]) => {
+    setFiltros(prev => ({ ...prev, [campo]: valor }));
+  };
+
+  const handleExportarCsv = () => {
+    if (alertasFiltradas.length === 0) {
+      setAvisoExportar(MSG_SIN_EXPORTAR);
+      return;
+    }
+    const filas = alertasFiltradas.map(al => [
+      al.id, al.ip_origen, al.ip_destino, al.protocolo, al.timestamp, al.severidad, al.descripcion,
+    ]);
+    descargarBlob(generarCsv(CSV_ENCABEZADOS, filas), `ALERTAS-${sufijoArchivo(new Date())}.csv`);
+  };
+
+  // Abiertos primero, luego por fecha de actualización descendente
+  const eventosOrdenados = [...eventos].sort((a, b) => {
+    if (a.status === "Abierto" && b.status !== "Abierto") return -1;
+    if (b.status === "Abierto" && a.status !== "Abierto") return 1;
+    return new Date(b.last_update).getTime() - new Date(a.last_update).getTime();
+  });
 
   return (
     <div className="p-4 sm:p-6 flex flex-col gap-5 h-full">
@@ -292,6 +445,98 @@ export function Alerts({ eventoSeleccionado }: { eventoSeleccionado: string | nu
         </button>
       </div>
 
+      {/* Barra de filtros + exportación (solo alertas individuales) */}
+      {tab === "aislados" && !loading && (
+        <div
+          style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "10px", padding: "12px 14px" }}
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label htmlFor="filtro-severidad" style={filtroLabelStyle}>Severidad</label>
+              <select
+                id="filtro-severidad"
+                value={filtros.severidad}
+                onChange={e => { if (esSeveridadFiltro(e.target.value)) actualizarFiltro("severidad", e.target.value); }}
+                style={filtroInputStyle}
+              >
+                <option value="todas">Todas</option>
+                {SEVERIDADES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filtro-ip" style={filtroLabelStyle}>IP origen</label>
+              <input
+                id="filtro-ip"
+                type="text"
+                placeholder="p. ej. 192.168."
+                value={filtros.ip}
+                onChange={e => actualizarFiltro("ip", e.target.value)}
+                style={{ ...filtroInputStyle, width: "150px", fontFamily: "JetBrains Mono, monospace" }}
+              />
+            </div>
+            <div>
+              <label htmlFor="filtro-desde" style={filtroLabelStyle}>Desde</label>
+              <input
+                id="filtro-desde"
+                type="date"
+                value={filtros.desde}
+                onChange={e => actualizarFiltro("desde", e.target.value)}
+                style={filtroInputStyle}
+              />
+            </div>
+            <div>
+              <label htmlFor="filtro-hasta" style={filtroLabelStyle}>Hasta</label>
+              <input
+                id="filtro-hasta"
+                type="date"
+                value={filtros.hasta}
+                onChange={e => actualizarFiltro("hasta", e.target.value)}
+                style={filtroInputStyle}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => setFiltros(FILTROS_VACIOS)}
+                disabled={!hayFiltros}
+                className="flex items-center gap-1.5"
+                style={{
+                  padding: "6px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: 600,
+                  background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--txt2)",
+                  cursor: hayFiltros ? "pointer" : "default", opacity: hayFiltros ? 1 : 0.5,
+                }}
+              >
+                <FilterX size={13} />
+                Limpiar
+              </button>
+              <button
+                onClick={handleExportarCsv}
+                className="flex items-center gap-1.5"
+                style={{
+                  padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: 700,
+                  fontFamily: "Syne, sans-serif", background: "#7c3aed", border: "none", color: "#fff", cursor: "pointer",
+                }}
+              >
+                <Download size={13} />
+                Exportar CSV
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2" style={{ marginTop: "10px" }}>
+            <span style={{ fontSize: "11px", color: "var(--txt3)" }}>
+              Mostrando <strong style={{ color: "var(--txt)" }}>{alertasFiltradas.length}</strong> de {alertas.length} alertas
+            </span>
+            {rangoInvalido && (
+              <span role="alert" style={{ fontSize: "11px", color: "#f59e0b" }}>{MSG_RANGO_INVALIDO}</span>
+            )}
+            {avisoExportar && (
+              <span role="status" style={{ fontSize: "11px", color: "#f59e0b" }}>{avisoExportar}</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto" }} className="custom-scrollbar">
         {loading ? (
@@ -303,19 +548,18 @@ export function Alerts({ eventoSeleccionado }: { eventoSeleccionado: string | nu
                 No hay incidentes correlacionados abiertos.
               </div>
             ) : (
-              // Order: Open first, then by date descending
-              eventos.sort((a, b) => {
-                if (a.status === "Abierto" && b.status !== "Abierto") return -1;
-                if (b.status === "Abierto" && a.status !== "Abierto") return 1;
-                return new Date(b.last_update).getTime() - new Date(a.last_update).getTime();
-              }).map(ev => (
-                <AccordionEvent 
-                  key={ev.id} 
-                  event={ev} 
+              eventosOrdenados.map(ev => (
+                <AccordionEvent
+                  key={ev.id}
+                  event={ev}
                   startExpanded={eventoSeleccionado === ev.id}
                 />
               ))
             )}
+          </div>
+        ) : alertasFiltradas.length === 0 && alertas.length > 0 ? (
+          <div style={{ color: "var(--txt3)", fontSize: "13px", textAlign: "center", padding: "40px 0" }}>
+            {MSG_SIN_RESULTADOS}
           </div>
         ) : (
           <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "8px", overflowX: "auto" }}>
@@ -332,7 +576,7 @@ export function Alerts({ eventoSeleccionado }: { eventoSeleccionado: string | nu
                 </tr>
               </thead>
               <tbody>
-                {alertas.map((al, idx) => {
+                {alertasFiltradas.map((al, idx) => {
                   const vs = getVectorStyle(al.vector_origen || (al.descripcion?.includes("Correo") ? "Email" : al.descripcion?.includes("Proceso") ? "Endpoint" : "Red"));
                   return (
                     <tr key={idx} style={{ borderTop: "1px solid var(--border)", color: "#fff" }}>
@@ -358,14 +602,14 @@ export function Alerts({ eventoSeleccionado }: { eventoSeleccionado: string | nu
                         ) : <span style={{ color: "var(--txt3)", fontSize: "11px" }}>-</span>}
                       </td>
                       <td style={{ padding: "10px 16px" }}>
-                        <span style={{ 
+                        <span style={{
                           background: SEV_BG[al.severidad], color: SEV_COLOR[al.severidad],
                           padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "bold", textTransform: "uppercase"
                         }}>
                           {al.severidad}
                         </span>
                       </td>
-                      <td style={{ padding: "10px 16px", color: "var(--txt3)", fontFamily: "monospace" }}>{al.timestamp.replace("T", " ").split(".")[0]}</td>
+                      <td style={{ padding: "10px 16px", color: "var(--txt3)", fontFamily: "monospace" }}>{formatFechaHora(al.timestamp)}</td>
                     </tr>
                   );
                 })}

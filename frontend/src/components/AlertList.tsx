@@ -1,33 +1,41 @@
-import { Alerta, PageId } from "../types";
+import { Alerta, NivelSeveridad, PageId } from "../types";
+import { formatHora } from "../lib/format";
 
-const SEV_COLOR: Record<string, string> = {
+const SEV_COLOR: Record<NivelSeveridad, string> = {
+  Crítica: "#dc2626",
   Alta: "#ef4444",
   Media: "#f59e0b",
   Baja: "#10b981",
 };
 
-const SEV_ROW_BG: Record<string, string> = {
+const SEV_ROW_BG: Record<NivelSeveridad, string> = {
+  Crítica: "rgba(220,38,38,0.12)",
   Alta: "rgba(239,68,68,0.08)",
   Media: "rgba(245,158,11,0.08)",
   Baja: "rgba(16,185,129,0.08)",
 };
 
-const SEV_ROW_BORDER: Record<string, string> = {
+const SEV_ROW_BORDER: Record<NivelSeveridad, string> = {
+  Crítica: "rgba(220,38,38,0.3)",
   Alta: "rgba(239,68,68,0.18)",
   Media: "rgba(245,158,11,0.18)",
   Baja: "rgba(16,185,129,0.18)",
 };
 
-const SEV_BADGE_BG: Record<string, string> = {
+const SEV_BADGE_BG: Record<NivelSeveridad, string> = {
+  Crítica: "rgba(220,38,38,0.2)",
   Alta: "rgba(239,68,68,0.15)",
   Media: "rgba(245,158,11,0.15)",
   Baja: "rgba(16,185,129,0.15)",
 };
 
+// Crítica y Alta van primero; el resto se ordena por fecha descendente
+const PRIORIDAD: Record<NivelSeveridad, number> = { Crítica: 0, Alta: 1, Media: 2, Baja: 2 };
+
 function ordenar(alertas: Alerta[]): Alerta[] {
   return [...alertas].sort((a, b) => {
-    if (a.severidad === "Alta" && b.severidad !== "Alta") return -1;
-    if (b.severidad === "Alta" && a.severidad !== "Alta") return 1;
+    const diff = PRIORIDAD[a.severidad] - PRIORIDAD[b.severidad];
+    if (diff !== 0) return diff;
     return b.timestamp.localeCompare(a.timestamp);
   });
 }
@@ -96,7 +104,7 @@ export function AlertList({ alertas, onNavegar }: { alertas: Alerta[], onNavegar
                 {a.descripcion}
               </p>
               <p className="font-mono" style={{ fontSize: "10px", color: "var(--txt3)", marginTop: "2px" }}>
-                {a.ip_origen} · {a.timestamp.split(" ")[1]}
+                {a.ip_origen} · {formatHora(a.timestamp)}
               </p>
             </div>
 

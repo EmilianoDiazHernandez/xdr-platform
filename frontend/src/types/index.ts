@@ -1,10 +1,13 @@
 export * from "./auth";
+export * from "./anomaly";
 
 export type NivelSeveridad = "Crítica" | "Alta" | "Media" | "Baja";
 
 export interface Alerta {
   id:          number | string;
   ip_origen:   string;
+  ip_destino?: string;
+  protocolo?:  string;
   timestamp:   string;
   severidad:   NivelSeveridad;
   descripcion: string;
@@ -88,6 +91,26 @@ export interface TimelineItem {
   ip_origen?: string | null;
   ip_destino?: string | null;
   file_hash?: string | null;
+}
+
+// Mismo shape que KillChainStepResponse del backend
+export interface KillChainStep {
+  id_alerta?:          number | null;
+  timestamp:           string;
+  vector:              string;
+  severidad:           string;
+  mitre_tactic?:       string | null;
+  mitre_technique_id?: string | null;
+  descripcion:         string;
+}
+
+// Alerta cruda de un activo (GET /topology/node_alerts/{id})
+export interface NodeAlert {
+  tipo_deteccion?: string;
+  tipo_ataque?:    string;
+  id_severidad?:   number | string;
+  descripcion?:    string;
+  time:            string;
 }
 
 export interface IncidentTimeline {

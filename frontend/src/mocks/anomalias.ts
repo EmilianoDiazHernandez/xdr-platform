@@ -1,0 +1,57 @@
+// SOLO DESARROLLO — datos de demostración para CU-10 hasta que exista el endpoint de anomalías.
+import type { Anomalia } from "../types";
+
+export const anomaliasMock: Anomalia[] = [
+  {
+    id: "an-0001",
+    timestamp: "2026-10-14T09:42:10Z",
+    ip_origen: "192.168.10.24",
+    dispositivo: "ws-contabilidad-03",
+    metrica: "Volumen de tráfico saliente",
+    puntaje: 0.93,
+    descripcion: "Transferencia saliente de 1.8 GB hacia un host externo fuera del horario laboral; 14 veces superior a la línea base del equipo.",
+    estado: "pendiente",
+  },
+  {
+    id: "an-0002",
+    timestamp: "2026-10-14T08:15:33Z",
+    ip_origen: "192.168.10.51",
+    dispositivo: "srv-archivos-01",
+    metrica: "Intentos de autenticación",
+    puntaje: 0.81,
+    descripcion: "Ráfaga de 220 intentos de autenticación SMB en 3 minutos desde un mismo origen interno.",
+    estado: "pendiente",
+  },
+  {
+    id: "an-0003",
+    timestamp: "2026-10-13T23:05:47Z",
+    ip_origen: "192.168.20.7",
+    dispositivo: "ws-desarrollo-12",
+    metrica: "Procesos hijos inusuales",
+    puntaje: 0.74,
+    descripcion: "Proceso de ofimática generando un intérprete de comandos con argumentos codificados en Base64.",
+    estado: "pendiente",
+  },
+  {
+    id: "an-0004",
+    timestamp: "2026-10-13T17:28:02Z",
+    ip_origen: "192.168.10.88",
+    dispositivo: "ws-rrhh-02",
+    metrica: "Consultas DNS",
+    puntaje: 0.62,
+    descripcion: "Incremento de consultas DNS a dominios de reciente registro con alta entropía en el nombre.",
+    estado: "falso_positivo",
+    justificacion: "Actualización legítima del agente de respaldo; dominios verificados con el proveedor.",
+  },
+  {
+    id: "an-0005",
+    timestamp: "2026-10-13T11:51:19Z",
+    ip_origen: "192.168.30.3",
+    dispositivo: "fw-perimetral",
+    metrica: "Conexiones a puertos no estándar",
+    puntaje: 0.88,
+    descripcion: "Conexiones salientes persistentes al puerto 4444/TCP desde la zona desmilitarizada.",
+    estado: "amenaza_confirmada",
+    justificacion: "Coincide con canal C2 conocido; se aisló el equipo y se escaló al equipo de respuesta.",
+  },
+];

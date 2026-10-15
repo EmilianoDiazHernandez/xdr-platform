@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchTopology, fetchNodeAlerts, fetchEvents, fetchIncidentTimeline } from "../api/config";
-import { TopologyData, TopologyNode, CorrelatedEvent } from "../types";
+import { fetchTopology, fetchNodeAlerts, fetchEvents, fetchKillChain } from "../api/config";
+import { TopologyData, TopologyNode, CorrelatedEvent, KillChainStep, NodeAlert } from "../types";
 import { NetworkGraph } from "../components/NetworkGraph";
 import { CyberKillChainTimeline } from "../components/CyberKillChainTimeline";
 import { ShieldAlert, X, Activity } from "lucide-react";
@@ -9,10 +9,10 @@ export function Topology() {
   const [data, setData] = useState<TopologyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<TopologyNode | null>(null);
-  const [nodeAlerts, setNodeAlerts] = useState<any[]>([]);
+  const [nodeAlerts, setNodeAlerts] = useState<NodeAlert[]>([]);
 
   // Estado para la Trazabilidad Táctica (Cyber Kill Chain)
-  const [killChainTimeline, setKillChainTimeline] = useState<any[]>([]);
+  const [killChainTimeline, setKillChainTimeline] = useState<KillChainStep[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
   const [modalTimelineAbierto, setModalTimelineAbierto] = useState(false);
   const [activeEvent, setActiveEvent] = useState<CorrelatedEvent | null>(null);
@@ -29,9 +29,9 @@ export function Topology() {
           if (matching) {
             setActiveEvent(matching);
             setLoadingTimeline(true);
-            fetchIncidentTimeline(matching.id)
-              .then((timeline) => {
-                setKillChainTimeline(Array.isArray(timeline) ? timeline : []);
+            fetchKillChain(matching.id)
+              .then((pasos) => {
+                setKillChainTimeline(pasos);
                 setLoadingTimeline(false);
               })
               .catch((err) => {
