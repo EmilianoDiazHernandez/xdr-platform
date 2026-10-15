@@ -5,6 +5,9 @@ export const API_BASE_URL      = import.meta.env.VITE_API_BASE_URL      ?? "http
 export const REPORT_BASE_URL   = import.meta.env.VITE_REPORT_BASE_URL   ?? "http://localhost:8001/api/v1";
 export const TOPOLOGY_BASE_URL = import.meta.env.VITE_TOPOLOGY_BASE_URL ?? "http://localhost:8002/api/v1";
 
+// Adaptadores mock (SOLO DESARROLLO) salvo que VITE_AUTH_MODE=api
+export const MODO_MOCK = import.meta.env.VITE_AUTH_MODE !== "api";
+
 // /health vive en la raíz de cada servicio, no bajo /api/v1
 const raizDe = (url: string) => url.replace(/\/api\/v1\/?$/, "");
 export const API_ROOT_URL      = raizDe(API_BASE_URL);
