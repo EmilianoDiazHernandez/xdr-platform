@@ -19,7 +19,6 @@ export type PageId =
   | "inicio"
   | "topologia"
   | "alertas"
-  | "eventos"
   | "anomalias"
   | "reportes"
   | "admin-usuarios"

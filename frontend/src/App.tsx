@@ -21,7 +21,6 @@ const TITULOS: Record<PageId, string> = {
   "inicio":             "Inicio",
   "topologia":          "Topología de red",
   "alertas":            "Alertas",
-  "eventos":            "Eventos",
   "anomalias":          "Anomalías",
   "reportes":           "Reportes PDF",
   "admin-usuarios":     "Usuarios",
