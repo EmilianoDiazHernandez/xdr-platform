@@ -17,6 +17,20 @@ export function fechaDe(ts: string): string {
   return ts.slice(0, 10);
 }
 
+// Fecha local en formato YYYY-MM-DD (valor de <input type="date">), desplazada `dias` días
+export function fechaLocalIso(base: Date = new Date(), dias = 0): string {
+  const d = new Date(base);
+  d.setDate(d.getDate() + dias);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// "2026-10-15" → "15/10/2026"
+export function formatFechaCorta(iso: string): string {
+  const [a, m, d] = iso.slice(0, 10).split("-");
+  return a && m && d ? `${d}/${m}/${a}` : iso;
+}
+
 // Sufijo de nombre de archivo YYYYMMDD-HHmm (RF15)
 export function sufijoArchivo(fecha: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");

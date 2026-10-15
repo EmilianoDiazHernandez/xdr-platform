@@ -1,6 +1,7 @@
 export * from "./auth";
 export * from "./anomaly";
 export * from "./admin";
+export * from "./executive";
 
 export type NivelSeveridad = "Crítica" | "Alta" | "Media" | "Baja";
 

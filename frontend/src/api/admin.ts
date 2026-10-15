@@ -1,7 +1,7 @@
 // API del Administrador de Sistemas (CU-15, CU-16, CU-17).
 // SOLO DESARROLLO (adaptador mock) — el adaptador "api" sigue el contrato objetivo del backend.
 import { apiRequest, ApiError } from "./client";
-import { API_BASE_URL, REPORT_ROOT_URL, TOPOLOGY_ROOT_URL, fetchHealth } from "./config";
+import { API_BASE_URL, MODO_MOCK, REPORT_ROOT_URL, TOPOLOGY_ROOT_URL, fetchHealth } from "./config";
 import { usuariosMock } from "../mocks/usuarios";
 import { logsMock } from "../mocks/logs";
 import type { CambiosUsuario, EntradaLog, EstadoServicio, NivelLog, NuevoUsuario, UsuarioAdmin } from "../types";
@@ -115,7 +115,7 @@ const apiAdapter: AdminApi = {
   },
 };
 
-export const MODO_MOCK = import.meta.env.VITE_AUTH_MODE !== "api";
+export { MODO_MOCK };
 
 export const adminApi: AdminApi = MODO_MOCK ? mockAdapter : apiAdapter;
 

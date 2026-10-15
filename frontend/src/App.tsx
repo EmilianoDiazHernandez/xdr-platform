@@ -9,6 +9,8 @@ import { Anomalies } from "./pages/Anomalies";
 import { Users } from "./pages/admin/Users";
 import { Services } from "./pages/admin/Services";
 import { Logs } from "./pages/admin/Logs";
+import { ExecutiveSummary } from "./pages/executive/ExecutiveSummary";
+import { GeneratedReports } from "./pages/executive/GeneratedReports";
 import { Login } from "./pages/Login";
 import { Forbidden } from "./pages/Forbidden";
 import { useAuth } from "./auth/AuthContext";
@@ -105,6 +107,8 @@ function Dashboard({ role }: { role: Role }) {
     if (paginaActiva === "admin-usuarios") return <Users />;
     if (paginaActiva === "admin-servicios") return <Services />;
     if (paginaActiva === "admin-logs") return <Logs />;
+    if (paginaActiva === "ejecutivo") return <ExecutiveSummary />;
+    if (paginaActiva === "reportes-generados") return <GeneratedReports />;
     return <Placeholder titulo={TITULOS[paginaActiva]} />;
   };
 
