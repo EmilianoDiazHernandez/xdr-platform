@@ -6,6 +6,9 @@ import { Topology } from "./pages/Topology";
 import { Alerts } from "./pages/Alerts";
 import { Reports } from "./pages/Reports";
 import { Anomalies } from "./pages/Anomalies";
+import { Users } from "./pages/admin/Users";
+import { Services } from "./pages/admin/Services";
+import { Logs } from "./pages/admin/Logs";
 import { Login } from "./pages/Login";
 import { Forbidden } from "./pages/Forbidden";
 import { useAuth } from "./auth/AuthContext";
@@ -99,6 +102,9 @@ function Dashboard({ role }: { role: Role }) {
     if (paginaActiva === "alertas") return <Alerts eventoSeleccionado={eventoSeleccionado} />;
     if (paginaActiva === "anomalias") return <Anomalies />;
     if (paginaActiva === "reportes") return <Reports />;
+    if (paginaActiva === "admin-usuarios") return <Users />;
+    if (paginaActiva === "admin-servicios") return <Services />;
+    if (paginaActiva === "admin-logs") return <Logs />;
     return <Placeholder titulo={TITULOS[paginaActiva]} />;
   };
 

@@ -1,5 +1,6 @@
 export * from "./auth";
 export * from "./anomaly";
+export * from "./admin";
 
 export type NivelSeveridad = "Crítica" | "Alta" | "Media" | "Baja";
 
@@ -22,6 +23,7 @@ export interface Alerta {
 export interface EstadoServicio {
   nombre:               string;
   activo:               boolean;
+  desconocido?:         boolean; // el servicio no respondió y no se puede afirmar su estado
   ultima_verificacion:  string;
 }
 

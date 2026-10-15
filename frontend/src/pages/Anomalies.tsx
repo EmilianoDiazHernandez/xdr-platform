@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Info, ShieldAlert, ShieldCheck, Radar, CheckCircle } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Radar, CheckCircle } from "lucide-react";
+import { DemoBanner } from "../components/DemoBanner";
 import { anomaliasMock } from "../mocks/anomalias";
 import { formatFechaHora } from "../lib/format";
 import type { Anomalia, ClasificacionAnomalia, EstadoAnomalia } from "../types";
@@ -89,18 +90,7 @@ export function Anomalies() {
         </p>
       </div>
 
-      {/* Banner de demostración */}
-      <div
-        role="note"
-        className="flex items-center gap-2"
-        style={{
-          padding: "8px 12px", borderRadius: "8px", fontSize: "12px",
-          background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd",
-        }}
-      >
-        <Info size={14} style={{ flexShrink: 0 }} />
-        Datos de demostración — pendiente endpoint de backend
-      </div>
+      <DemoBanner />
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-[14px] items-start">
         {/* Lista */}

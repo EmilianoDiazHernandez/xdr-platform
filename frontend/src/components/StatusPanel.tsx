@@ -1,9 +1,20 @@
 import { EstadoServicio } from "../types";
 
+const UI_ESTADO = {
+  online:      { label: "Online",      color: "var(--green)", bg: "var(--green-bg)",        border: "rgba(16,185,129,0.2)", ancho: "90%" },
+  offline:     { label: "Offline",     color: "var(--red)",   bg: "var(--red-bg)",          border: "rgba(239,68,68,0.2)",  ancho: "0%" },
+  desconocido: { label: "Desconocido", color: "#f59e0b",      bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.25)", ancho: "0%" },
+};
+
+function estadoDe(s: EstadoServicio): keyof typeof UI_ESTADO {
+  if (s.desconocido) return "desconocido";
+  return s.activo ? "online" : "offline";
+}
+
 export function StatusPanel({ servicios }: { servicios: EstadoServicio[] }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {servicios.map(s => (
+      {servicios.map(s => { const ui = UI_ESTADO[estadoDe(s)]; return (
         <div
           key={s.nombre}
           style={{
@@ -29,12 +40,12 @@ export function StatusPanel({ servicios }: { servicios: EstadoServicio[] }) {
                 letterSpacing: "0.8px",
                 padding: "2px 7px",
                 borderRadius: "4px",
-                background: s.activo ? "var(--green-bg)" : "var(--red-bg)",
-                color: s.activo ? "var(--green)" : "var(--red)",
-                border: `1px solid ${s.activo ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+                background: ui.bg,
+                color: ui.color,
+                border: `1px solid ${ui.border}`,
               }}
             >
-              {s.activo ? "Online" : "Offline"}
+              {ui.label}
             </span>
           </div>
 
@@ -51,14 +62,14 @@ export function StatusPanel({ servicios }: { servicios: EstadoServicio[] }) {
               style={{
                 height: "100%",
                 borderRadius: "2px",
-                width: s.activo ? "90%" : "0%",
-                background: s.activo ? "var(--green)" : "var(--red)",
+                width: ui.ancho,
+                background: ui.color,
                 transition: "width 0.4s ease",
               }}
             />
           </div>
         </div>
-      ))}
+      ); })}
     </div>
   );
 }
