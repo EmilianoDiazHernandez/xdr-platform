@@ -1,15 +1,97 @@
-import React from "react";
+import type { ReactNode } from "react";
+import type { KillChainStep } from "../types";
 
 /**
  * CyberKillChainTimeline
  * Visualización cronológica de la progresión táctica (Cyber Kill Chain)
  * utilizando Tailwind CSS puro sin dependencias complejas.
- *
- * @param {Object} props
- * @param {Array} props.timeline - Arreglo de pasos validados (KillChainStepResponse)
  */
-export function CyberKillChainTimeline({ timeline = [] }) {
-  if (!timeline || timeline.length === 0) {
+interface CyberKillChainTimelineProps {
+  timeline?: KillChainStep[];
+}
+
+interface VectorStyles {
+  dotBg: string;
+  badge: string;
+  label: string;
+  icon:  ReactNode;
+}
+
+interface SeverityStyles {
+  cardBorder: string;
+  badge:      string;
+}
+
+// Clases dinámicas de Tailwind según el vector
+function getVectorStyles(vector = ""): VectorStyles {
+  const v = vector.toLowerCase();
+  if (v.includes("email")) {
+    return {
+      dotBg: "bg-blue-500 ring-blue-950",
+      badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+      label: "Email",
+      icon: (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+    };
+  }
+  if (v.includes("endpoint")) {
+    return {
+      dotBg: "bg-purple-500 ring-purple-950",
+      badge: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+      label: "Endpoint",
+      icon: (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+    };
+  }
+  // Default Network
+  return {
+    dotBg: "bg-emerald-500 ring-emerald-950",
+    badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    label: "Network",
+    icon: (
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+      </svg>
+    ),
+  };
+}
+
+// Clases dinámicas de Tailwind según la severidad
+function getSeverityStyles(severidad = ""): SeverityStyles {
+  const s = severidad.toLowerCase();
+  if (s.includes("crítica") || s.includes("critica")) {
+    return {
+      cardBorder: "border-l-4 border-l-red-500 border-red-500/30 bg-red-950/10",
+      badge: "bg-red-500/20 text-red-400 border-red-500/30",
+    };
+  }
+  if (s.includes("alta")) {
+    return {
+      cardBorder: "border-l-4 border-l-orange-500 border-orange-500/30 bg-orange-950/10",
+      badge: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+    };
+  }
+  if (s.includes("media")) {
+    return {
+      cardBorder: "border-l-4 border-l-amber-500 border-amber-500/30 bg-amber-950/10",
+      badge: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    };
+  }
+  // Baja
+  return {
+    cardBorder: "border-l-4 border-l-emerald-500 border-emerald-500/30 bg-emerald-950/10",
+    badge: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  };
+}
+
+export function CyberKillChainTimeline({ timeline = [] }: CyberKillChainTimelineProps) {
+  if (timeline.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-900/60 rounded-xl border border-slate-800">
         <svg
@@ -34,74 +116,6 @@ export function CyberKillChainTimeline({ timeline = [] }) {
       </div>
     );
   }
-
-  // Clases dinámicas de Tailwind según el vector
-  const getVectorStyles = (vector = "") => {
-    const v = vector.toLowerCase();
-    if (v.includes("email")) {
-      return {
-        dotBg: "bg-blue-500 ring-blue-950",
-        badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-        label: "Email",
-        icon: (
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        ),
-      };
-    }
-    if (v.includes("endpoint")) {
-      return {
-        dotBg: "bg-purple-500 ring-purple-950",
-        badge: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-        label: "Endpoint",
-        icon: (
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        ),
-      };
-    }
-    // Default Network
-    return {
-      dotBg: "bg-emerald-500 ring-emerald-950",
-      badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-      label: "Network",
-      icon: (
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-        </svg>
-      ),
-    };
-  };
-
-  // Clases dinámicas de Tailwind según la severidad
-  const getSeverityStyles = (severidad = "") => {
-    const s = severidad.toLowerCase();
-    if (s.includes("crítica") || s.includes("critica")) {
-      return {
-        cardBorder: "border-l-4 border-l-red-500 border-red-500/30 bg-red-950/10",
-        badge: "bg-red-500/20 text-red-400 border-red-500/30",
-      };
-    }
-    if (s.includes("alta")) {
-      return {
-        cardBorder: "border-l-4 border-l-orange-500 border-orange-500/30 bg-orange-950/10",
-        badge: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-      };
-    }
-    if (s.includes("media")) {
-      return {
-        cardBorder: "border-l-4 border-l-amber-500 border-amber-500/30 bg-amber-950/10",
-        badge: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-      };
-    }
-    // Baja
-    return {
-      cardBorder: "border-l-4 border-l-emerald-500 border-emerald-500/30 bg-emerald-950/10",
-      badge: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-    };
-  };
 
   return (
     <div className="w-full py-2">

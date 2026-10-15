@@ -3,12 +3,8 @@ import { Download, Loader, CheckCircle, XCircle } from "lucide-react";
 import { EstadoReporte } from "../types";
 import { REPORT_BASE_URL } from "../api/config";
 import { apiBlob, REPORT_TIMEOUT_MS } from "../api/client";
-
-// Nombre de descarga según RF15: ALERTAS-YYYYMMDD-HHmm.pdf
-function nombreReporte(fecha: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `ALERTAS-${fecha.getFullYear()}${p(fecha.getMonth() + 1)}${p(fecha.getDate())}-${p(fecha.getHours())}${p(fecha.getMinutes())}.pdf`;
-}
+import { sufijoArchivo } from "../lib/format";
+import { descargarBlob } from "../lib/download";
 
 export function ReportButton() {
   const [estado, setEstado] = useState<EstadoReporte>("listo");
@@ -23,14 +19,9 @@ export function ReportButton() {
         timeoutMs: REPORT_TIMEOUT_MS,
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = nombreReporte(new Date());
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      
+      // Nombre de descarga según RF15: ALERTAS-YYYYMMDD-HHmm.pdf
+      descargarBlob(blob, `ALERTAS-${sufijoArchivo(new Date())}.pdf`);
+
       setEstado("exito");
     } catch (e) {
       console.error("Error generando reporte:", e);
