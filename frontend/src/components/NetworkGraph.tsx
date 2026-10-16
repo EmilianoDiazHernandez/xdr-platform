@@ -126,7 +126,9 @@ export function NetworkGraph({ nodes, edges, onSelectNode, selectedNodeId }: Net
       style={{ 
         width: "100%", 
         height: "100%", 
-        background: "#0f0a1a", 
+        backgroundColor: "#090d16", 
+        backgroundImage: "radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px)",
+        backgroundSize: "24px 24px",
         borderRadius: "12px", 
         border: "1px solid var(--border)",
         position: "relative",

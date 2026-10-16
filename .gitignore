@@ -1,4 +1,4 @@
-﻿# Node / Frontend
+# Node / Frontend
 node_modules/
 dist/
 .env
@@ -18,3 +18,7 @@ data/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Emulation Runtime Artifacts
+**/zeek_logs/
+*.stream_state.json

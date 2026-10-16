@@ -38,119 +38,82 @@ export function Sidebar({
 
   return (
     <>
-      {/* Backdrop overlay para pantallas móviles/tablets */}
+      {/* Backdrop overlay para pantallas móviles */}
       {abiertoMobile && (
         <div
           onClick={onCerrarMobile}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden transition-opacity"
           aria-hidden="true"
         />
       )}
 
-      {/* Contenedor del Sidebar */}
+      {/* Contenedor principal del Sidebar */}
       <aside
         className={`flex flex-col flex-shrink-0 transition-all duration-300 z-50
           fixed lg:static top-0 bottom-0 left-0
+          bg-slate-900 border-r border-slate-800/80 select-none
           ${abiertoMobile ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"}
+          ${colapsadoDesktop ? "w-[68px]" : "w-[230px]"}
         `}
-        style={{
-          width: colapsadoDesktop ? "68px" : "220px",
-          minHeight: "100vh",
-          background: "var(--bg2)",
-          borderRight: "1px solid var(--border)",
-        }}
       >
-        {/* Logo y Encabezado del Menú */}
-        <div
-          className="flex items-center justify-between px-4 py-5"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
+        {/* Cabecera de la Marca e Identidad */}
+        <div className="flex items-center justify-between px-4 h-14 border-b border-slate-800/80 flex-shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div
-              className="flex items-center justify-center flex-shrink-0"
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-              }}
-            >
-              <ShieldCheck size={16} color="#fff" />
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex-shrink-0 shadow-sm">
+              <ShieldCheck size={18} />
             </div>
             {!colapsadoDesktop && (
-              <div className="transition-opacity duration-200">
-                <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", lineHeight: 1 }}>
+              <div className="flex flex-col truncate">
+                <span className="text-xs font-bold text-slate-100 tracking-tight leading-none">
                   XDR Platform
-                </p>
-                <p className="truncate" style={{ fontSize: "9px", color: "var(--txt3)", letterSpacing: "1px", textTransform: "uppercase", marginTop: "3px" }}>
-                  {session ? ROLE_LABEL[session.user.role] : "v1.0.0"}
-                </p>
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium tracking-wide mt-1 truncate">
+                  {session ? ROLE_LABEL[session.user.role] : "SOC Console"}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Botón de cierre en vista móvil */}
+          {/* Botón de cierre móvil */}
           <button
             onClick={onCerrarMobile}
-            className="lg:hidden p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            className="lg:hidden p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             aria-label="Cerrar menú"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Lista de Navegación */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
+        {/* Lista de Navegación por Secciones (según el rol de la sesión) */}
+        <nav className="flex-1 overflow-y-auto px-2 py-4 custom-scrollbar space-y-4">
           {menu.map(({ section, items }) => (
-            <div key={section} className="mb-2">
+            <div key={section} className="space-y-1">
               {!colapsadoDesktop ? (
-                <p
-                  className="px-2 py-2"
-                  style={{
-                    fontSize: "9px",
-                    fontWeight: 700,
-                    letterSpacing: "1.5px",
-                    textTransform: "uppercase",
-                    color: "var(--txt3)",
-                  }}
-                >
+                <p className="px-3 py-1 text-[10px] font-semibold tracking-wider uppercase text-slate-500">
                   {section}
                 </p>
               ) : (
-                <div style={{ height: "1px", background: "var(--border)", margin: "8px 4px" }} />
+                <div className="h-px bg-slate-800/80 my-2 mx-2" />
               )}
 
-              {items.map(({ id, label, Icon, color }) => {
+              {items.map(({ id, label, Icon }) => {
                 const isActive = activo === id;
                 return (
                   <button
                     key={id}
                     onClick={() => handleItemClick(id)}
                     title={colapsadoDesktop ? label : undefined}
-                    className={`w-full flex items-center ${colapsadoDesktop ? "justify-center" : "gap-3"} px-3 py-2 rounded-lg transition-all`}
-                    style={{
-                      background: isActive ? "rgba(124,58,237,0.15)" : "transparent",
-                      color: isActive ? "#c4b5fd" : "var(--txt2)",
-                      fontSize: "12px",
-                      fontWeight: isActive ? 600 : 500,
-                      marginBottom: "2px",
-                      border: "none",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                    onMouseEnter={e => {
-                      if (!isActive)
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                    }}
-                    onMouseLeave={e => {
-                      if (!isActive)
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
+                    className={`relative w-full flex items-center ${
+                      colapsadoDesktop ? "justify-center px-0" : "gap-3 px-3"
+                    } py-2 rounded-lg text-xs transition-colors ${
+                      isActive
+                        ? "bg-indigo-600/15 text-indigo-300 font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-indigo-500 before:rounded-r"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 font-medium"
+                    }`}
                   >
                     <Icon
                       size={16}
-                      color={isActive ? "#c4b5fd" : color}
-                      style={{ flexShrink: 0 }}
+                      className={`flex-shrink-0 ${isActive ? "text-indigo-400" : "text-slate-400"}`}
                     />
                     {!colapsadoDesktop && (
                       <span className="truncate">{label}</span>
@@ -162,42 +125,34 @@ export function Sidebar({
           ))}
         </nav>
 
-        {/* Pie del Sidebar y Toggle de Colapso en Desktop */}
-        <div
-          className="px-3 py-3 flex flex-col gap-2"
-          style={{ borderTop: "1px solid var(--border)" }}
-        >
-          {/* Botón desplegable / colapsable para Desktop */}
+        {/* Pie del Sidebar y Toggle de Colapso */}
+        <div className="p-3 border-t border-slate-800/80 flex flex-col gap-2 flex-shrink-0 bg-slate-900/60">
           {onToggleColapsoDesktop && (
             <button
               onClick={onToggleColapsoDesktop}
-              className={`hidden lg:flex items-center ${colapsadoDesktop ? "justify-center" : "justify-between"} w-full px-2 py-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors text-[11px]`}
-              title={colapsadoDesktop ? "Expandir menú" : "Colapsar menú"}
+              className={`hidden lg:flex items-center ${
+                colapsadoDesktop ? "justify-center" : "justify-between"
+              } w-full px-2.5 py-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-xs`}
+              title={colapsadoDesktop ? "Expandir menú lateral" : "Colapsar menú lateral"}
             >
-              {!colapsadoDesktop && <span style={{ color: "var(--txt3)", fontSize: "10px", fontWeight: 600 }}>Colapsar menú</span>}
-              {colapsadoDesktop ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              {!colapsadoDesktop && (
+                <span className="text-[11px] font-medium text-slate-400">
+                  Minimizar panel
+                </span>
+              )}
+              {colapsadoDesktop ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
             </button>
           )}
 
           {!colapsadoDesktop ? (
-            <p style={{
-              fontSize: "9px",
-              color: "var(--txt3)",
-              textAlign: "center",
-              letterSpacing: "0.8px",
-              textTransform: "uppercase",
-            }}>
-              IPN · ESCOM · 2026-B139
-            </p>
+            <div className="flex items-center justify-between px-1 text-[10px] text-slate-500 font-mono">
+              <span>ESCOM IPN</span>
+              <span>v1.0.0</span>
+            </div>
           ) : (
-            <p style={{
-              fontSize: "8px",
-              color: "var(--txt3)",
-              textAlign: "center",
-              fontWeight: 700,
-            }}>
-              ESCOM
-            </p>
+            <div className="text-center text-[9px] font-mono text-slate-500 font-bold">
+              v1.0
+            </div>
           )}
         </div>
       </aside>

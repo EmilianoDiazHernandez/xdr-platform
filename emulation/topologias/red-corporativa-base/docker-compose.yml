@@ -1,0 +1,242 @@
+services:
+  # =========================================================================
+  # ROUTER Y SENSOR DE RED (GATEWAY L3 + ZEEK EN VIVO)
+  # =========================================================================
+  emu-router-sensor:
+    build:
+      context: ../../dispositivos/router-sensor
+    container_name: xdr-emu-router
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./zeek_logs:/zeek_logs
+    networks:
+      net-wan:
+        ipv4_address: 185.15.2.1
+      net-dmz:
+        ipv4_address: 172.16.0.1
+      net-lan:
+        ipv4_address: 10.20.30.1
+    restart: unless-stopped
+    sysctls:
+      - net.ipv4.ip_forward=1
+
+  # =========================================================================
+  # SEGMENTO WAN (EXTERNO - ATACANTE)
+  # =========================================================================
+  emu-attacker:
+    build:
+      context: ../../dispositivos/attacker
+    container_name: xdr-emu-attacker
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - GATEWAY_IP=185.15.2.1
+    command: >
+      sh -c "
+        if [ -n \"$${GATEWAY_IP}\" ]; then
+          ip route add 172.16.0.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+          ip route add 10.20.30.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+        fi
+        exec uvicorn attack_controller:app --host 0.0.0.0 --port 5000
+      "
+    networks:
+      net-wan:
+        ipv4_address: 185.15.2.2
+    depends_on:
+      - emu-router-sensor
+
+  # =========================================================================
+  # SEGMENTO DMZ (SERVIDORES EXPUESTOS)
+  # =========================================================================
+  emu-web-srv:
+    build:
+      context: ../../dispositivos/server-web
+    container_name: xdr-emu-web
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - GATEWAY_IP=172.16.0.1
+      - DEVICE_HOSTNAME=SRV-DMZ-WEB
+      - DEVICE_IP=172.16.0.10
+      - EDR_COLLECTOR_URL=http://host.docker.internal:8000/api/v1/analyze-endpoint
+    command: >
+      sh -c "
+        if [ -n \"$${GATEWAY_IP}\" ]; then
+          ip route add 185.15.2.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+          ip route add 10.20.30.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+        fi
+        exec uvicorn app:app --host 0.0.0.0 --port 80
+      "
+    networks:
+      net-dmz:
+        ipv4_address: 172.16.0.10
+    depends_on:
+      - emu-router-sensor
+
+  emu-mail-srv:
+    build:
+      context: ../../dispositivos/server-mail
+    container_name: xdr-emu-mail
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - GATEWAY_IP=172.16.0.1
+      - DEVICE_HOSTNAME=CORP-MAIL-EXCHANGE
+      - DEVICE_IP=172.16.0.20
+      - API_URL=http://host.docker.internal:8000/api/v1/analyze-email
+    command: >
+      sh -c "
+        if [ -n \"$${GATEWAY_IP}\" ]; then
+          ip route add 185.15.2.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+          ip route add 10.20.30.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+        fi
+        exec python3 smtp_receiver.py
+      "
+    networks:
+      net-dmz:
+        ipv4_address: 172.16.0.20
+    depends_on:
+      - emu-router-sensor
+
+  # =========================================================================
+  # SEGMENTO LAN (RED INTERNA CORPORATIVA)
+  # =========================================================================
+  emu-workstation:
+    build:
+      context: ../../dispositivos/workstation
+    container_name: xdr-emu-workstation
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - GATEWAY_IP=10.20.30.1
+      - DEVICE_HOSTNAME=VENTAS-PC
+      - DEVICE_IP=10.20.30.45
+      - TARGET_WEB_URL=http://172.16.0.10/
+      - AUTO_TRAFFIC=false
+      - EDR_COLLECTOR_URL=http://host.docker.internal:8000/api/v1/analyze-endpoint
+    command: >
+      sh -c "
+        if [ -n \"$${GATEWAY_IP}\" ]; then
+          ip route add 185.15.2.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+          ip route add 172.16.0.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+        fi
+        exec uvicorn edr_agent:app --host 0.0.0.0 --port 5001
+      "
+    networks:
+      net-lan:
+        ipv4_address: 10.20.30.45
+    depends_on:
+      - emu-router-sensor
+
+  emu-db-internal:
+    build:
+      context: ../../dispositivos/server-db
+    container_name: xdr-emu-db
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - GATEWAY_IP=10.20.30.1
+      - DEVICE_HOSTNAME=SRV-DB-INTERNAL
+      - DEVICE_IP=10.20.30.50
+    command: >
+      sh -c "
+        if [ -n \"$${GATEWAY_IP}\" ]; then
+          ip route add 185.15.2.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+          ip route add 172.16.0.0/24 via $${GATEWAY_IP} 2>/dev/null || true
+        fi
+        exec python3 listener.py
+      "
+    networks:
+      net-lan:
+        ipv4_address: 10.20.30.50
+    depends_on:
+      - emu-router-sensor
+
+  # =========================================================================
+  # DASHBOARD C2 (ORQUESTADOR DE ESCENARIOS - PUERTO :9000)
+  # =========================================================================
+  emu-dashboard:
+    build:
+      context: ../../dashboard
+    container_name: xdr-emu-dashboard
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - ATTACKER_URL=http://xdr-emu-attacker:5000
+      - WORKSTATION_URL=http://xdr-emu-workstation:5001
+      - WEB_SRV_IP=172.16.0.10
+      - MAIL_SRV_IP=172.16.0.20
+      - DB_INTERNAL_IP=10.20.30.50
+    networks:
+      net-wan:
+        ipv4_address: 185.15.2.100
+      net-lan:
+        ipv4_address: 10.20.30.100
+    depends_on:
+      - emu-attacker
+      - emu-workstation
+
+  # =========================================================================
+  # PIPELINE DE INGESTA CONTINUO (PUENTE ZEEK -> XDR PLATFORM)
+  # =========================================================================
+  emu-pipeline-adapter:
+    build:
+      context: ../../pipeline_ingesta
+    container_name: xdr-emu-pipeline
+    restart: unless-stopped
+    volumes:
+      - ./zeek_logs:/zeek_logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - ZEEK_LOG_PATH=/zeek_logs
+      - API_URL=http://host.docker.internal:8000/api/v1/analyze-network
+      - BATCH_SIZE=20
+      - FLUSH_INTERVAL=1.0
+    networks:
+      - net-mgmt
+    depends_on:
+      - emu-router-sensor
+
+# =========================================================================
+# DEFINICIÓN DE SWITCHES VIRTUALES (REDES LAYER 2 AISLADAS)
+# =========================================================================
+networks:
+  net-wan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 185.15.2.0/24
+          gateway: 185.15.2.254
+
+  net-dmz:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+          gateway: 172.16.0.254
+
+  net-lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.30.0/24
+          gateway: 10.20.30.254
+
+  net-mgmt:
+    driver: bridge

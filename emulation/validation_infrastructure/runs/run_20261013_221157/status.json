@@ -1,0 +1,10 @@
+﻿{
+    "timestamp":  "2026-10-13T22:11:58.5774109-06:00",
+    "reason":  "Imagen Docker de Zeek (zeek/zeek:latest) no disponible localmente y no autorizada para descarga automatica",
+    "target_container":  "xdr-emu-red",
+    "target_ip":  "172.22.0.3",
+    "prerequisite_command":  "docker pull zeek/zeek:latest",
+    "status":  "BLOCKED",
+    "detected_interface":  "eth0",
+    "api_ip":  "172.22.0.10"
+}

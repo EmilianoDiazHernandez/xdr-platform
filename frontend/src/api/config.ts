@@ -1,5 +1,7 @@
 import { apiRequest, type ApiRequestInit } from "./client";
-import type { Alerta, CorrelatedEvent, IncidentTimeline, KillChainStep, NodeAlert, TopologyData } from "../types";
+import type {
+  Alerta, CorrelatedEvent, DisposicionAlerta, EstadoAlerta, IncidentTimeline, KillChainStep, NodeAlert, TopologyData,
+} from "../types";
 
 export const API_BASE_URL      = import.meta.env.VITE_API_BASE_URL      ?? "http://localhost:8000/api/v1";
 export const REPORT_BASE_URL   = import.meta.env.VITE_REPORT_BASE_URL   ?? "http://localhost:8001/api/v1";
@@ -25,6 +27,31 @@ export interface HealthResponse {
     email:    EstadoCapa;
   };
   redis: { activo: boolean };
+}
+
+export interface ActualizacionEstadoAlerta {
+  success:      boolean;
+  id:           number | string;
+  status:       EstadoAlerta;
+  disposition?: DisposicionAlerta;
+}
+
+/**
+ * Actualiza el ciclo de vida de una alerta (Estado y Disposición condicional).
+ * Función mock lista para desacoplarse y conectarse con endpoints de Spring Boot / FastAPI.
+ * Integración futura: PATCH {API_BASE_URL}/alertas/{id}/status con { status, disposition }
+ * vía apiRequest (inyecta el token y centraliza errores).
+ */
+export async function updateAlertStatus(
+  id: number | string,
+  status: EstadoAlerta,
+  disposition?: DisposicionAlerta,
+): Promise<ActualizacionEstadoAlerta> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, id, status, disposition });
+    }, 100);
+  });
 }
 
 export function fetchAlertas(): Promise<Alerta[]> {
