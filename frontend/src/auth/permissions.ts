@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Network,
   Bell,
+  CalendarDays,
   Radar,
   FileText,
   Users,
@@ -19,6 +20,7 @@ export const ACCESS: Record<PageId, readonly Role[]> = {
   "inicio":             ["security_analyst"],
   "topologia":          ["security_analyst"],
   "alertas":            ["security_analyst"],
+  "eventos":            ["security_analyst"],
   "anomalias":          ["security_analyst"],
   "reportes":           ["security_analyst"],
   "admin-usuarios":     ["sys_admin"],
@@ -34,9 +36,6 @@ const DEFAULT_PAGE: Record<Role, PageId> = {
   auditor:          "ejecutivo",
 };
 
-// Roles que pueden ver datos técnicos de infraestructura (StatusBar). El auditor no (RN07).
-export const TECHNICAL_STATUS_ROLES: readonly Role[] = ["security_analyst", "sys_admin"];
-
 export function canAccess(role: Role, page: PageId): boolean {
   return ACCESS[page].includes(role);
 }
@@ -45,15 +44,10 @@ export function defaultPageFor(role: Role): PageId {
   return DEFAULT_PAGE[role];
 }
 
-export function canSeeTechnicalStatus(role: Role): boolean {
-  return TECHNICAL_STATUS_ROLES.includes(role);
-}
-
 export interface MenuItem {
   id:    PageId;
   label: string;
   Icon:  LucideIcon;
-  color: string;
 }
 
 export interface MenuSection {
@@ -66,21 +60,22 @@ export const MENU_BY_ROLE: Record<Role, MenuSection[]> = {
     {
       section: "General",
       items: [
-        { id: "inicio",    label: "Inicio",    Icon: LayoutDashboard, color: "#10b981" },
-        { id: "topologia", label: "Topología", Icon: Network,         color: "#64748b" },
+        { id: "inicio",    label: "Inicio",    Icon: LayoutDashboard },
+        { id: "topologia", label: "Topología", Icon: Network },
       ],
     },
     {
       section: "Detección",
       items: [
-        { id: "alertas",   label: "Alertas",   Icon: Bell,         color: "#f59e0b" },
-        { id: "anomalias", label: "Anomalías", Icon: Radar,        color: "#64748b" },
+        { id: "alertas",   label: "Alertas",                    Icon: Bell },
+        { id: "eventos",   label: "Incidentes Correlacionados", Icon: CalendarDays },
+        { id: "anomalias", label: "Anomalías",                  Icon: Radar },
       ],
     },
     {
       section: "Reportes",
       items: [
-        { id: "reportes", label: "Reportes PDF", Icon: FileText, color: "#64748b" },
+        { id: "reportes", label: "Reportes PDF", Icon: FileText },
       ],
     },
   ],
@@ -88,9 +83,9 @@ export const MENU_BY_ROLE: Record<Role, MenuSection[]> = {
     {
       section: "Administración",
       items: [
-        { id: "admin-usuarios",  label: "Usuarios",            Icon: Users,      color: "#64748b" },
-        { id: "admin-servicios", label: "Estado de servicios", Icon: Server,     color: "#10b981" },
-        { id: "admin-logs",      label: "Logs del sistema",    Icon: ScrollText, color: "#64748b" },
+        { id: "admin-usuarios",  label: "Usuarios",            Icon: Users },
+        { id: "admin-servicios", label: "Estado de servicios", Icon: Server },
+        { id: "admin-logs",      label: "Logs del sistema",    Icon: ScrollText },
       ],
     },
   ],
@@ -98,8 +93,8 @@ export const MENU_BY_ROLE: Record<Role, MenuSection[]> = {
     {
       section: "Ejecutivo",
       items: [
-        { id: "ejecutivo",          label: "Resumen ejecutivo", Icon: BarChart3,  color: "#10b981" },
-        { id: "reportes-generados", label: "Reportes",          Icon: FolderOpen, color: "#64748b" },
+        { id: "ejecutivo",          label: "Resumen ejecutivo", Icon: BarChart3 },
+        { id: "reportes-generados", label: "Reportes",          Icon: FolderOpen },
       ],
     },
   ],

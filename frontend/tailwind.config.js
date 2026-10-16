@@ -7,6 +7,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Geist Variable"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -37,6 +41,14 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        soc: {
+          bg: "#090d16",
+          surface: "#0f172a",
+          card: "#15203b",
+          cardHover: "#1e293b",
+          border: "rgba(255, 255, 255, 0.08)",
+          borderHover: "rgba(255, 255, 255, 0.16)",
+        }
       },
       borderRadius: {
         lg: "var(--radius)",

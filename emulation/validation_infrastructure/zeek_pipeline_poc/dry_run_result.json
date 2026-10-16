@@ -1,0 +1,167 @@
+{
+  "run_directory": "C:\\Users\\spide\\Documents\\IPN\\TT\\xdr_v2\\xdr-platform\\emulation\\validation_infrastructure\\runs\\run_20261014_013045",
+  "status": "PASS",
+  "metrics": {
+    "zeek_records_read": 1,
+    "zeek_records_malformed": 0,
+    "events_normalized": 1,
+    "events_rejected": 0,
+    "http_records_correlated": 1
+  },
+  "malformed_zeek_lines": [],
+  "rejected_events": [],
+  "field_provenance": {
+    "observed_directly_from_zeek": [
+      "ts",
+      "uid",
+      "orig_ip (id.orig_h)",
+      "resp_ip (id.resp_h)",
+      "orig_p (id.orig_p)",
+      "resp_p (id.resp_p)",
+      "proto",
+      "service",
+      "conn_state",
+      "history",
+      "duration",
+      "orig_bytes",
+      "resp_bytes",
+      "missed_bytes",
+      "orig_pkts",
+      "resp_pkts",
+      "orig_ip_bytes",
+      "resp_ip_bytes",
+      "local_orig",
+      "local_resp"
+    ],
+    "derived_features": [
+      {
+        "name": "Flow_Duration",
+        "method": "duration * 1e6 (clamped to 1.0 if <= 0)"
+      },
+      {
+        "name": "Flow_Bytes_s",
+        "method": "(orig_bytes + resp_bytes) / duration"
+      },
+      {
+        "name": "Flow_Packets_s",
+        "method": "(orig_pkts + resp_pkts) / duration"
+      },
+      {
+        "name": "Subflow_Fwd_Bytes",
+        "method": "orig_bytes"
+      },
+      {
+        "name": "Subflow_Bwd_Bytes",
+        "method": "resp_bytes"
+      },
+      {
+        "name": "Subflow_Fwd_Packets",
+        "method": "orig_pkts"
+      },
+      {
+        "name": "act_data_pkt_fwd",
+        "method": "max(0, orig_pkts - 1)"
+      },
+      {
+        "name": "Fwd_Header_Length",
+        "method": "orig_ip_bytes - orig_bytes"
+      },
+      {
+        "name": "Bwd_Header_Length",
+        "method": "resp_ip_bytes - resp_bytes"
+      },
+      {
+        "name": "Fwd_Packet_Length_Max",
+        "method": "orig_bytes / orig_pkts (mean approx)"
+      },
+      {
+        "name": "Bwd_Packet_Length_Max",
+        "method": "resp_bytes / resp_pkts (mean approx)"
+      },
+      {
+        "name": "Bwd_Packet_Length_Min",
+        "method": "0.0 (constant)"
+      },
+      {
+        "name": "Down_Up_Ratio",
+        "method": "resp_bytes / orig_bytes if orig_bytes > 0 else 0.0"
+      },
+      {
+        "name": "Average_Packet_Size",
+        "method": "(orig_bytes + resp_bytes) / (orig_pkts + resp_pkts)"
+      },
+      {
+        "name": "idempotency_key",
+        "method": "sha256(uid:ts:orig_ip:orig_p:resp_ip:resp_p)"
+      },
+      {
+        "name": "hist_S/R/A/F",
+        "method": "flags binarias calculadas desde history"
+      },
+      {
+        "name": "local_orig/resp (bin)",
+        "method": "1 if T else 0"
+      }
+    ],
+    "unavailable_or_uncomputable_fields": []
+  },
+  "ml_model_compliance": {
+    "compliant": true,
+    "features_num_present": 8,
+    "features_num_total": 8,
+    "features_cat_present": 3,
+    "features_cat_total": 3,
+    "features_bin_computable": 6,
+    "features_bin_total": 6,
+    "total_contract_features": 17,
+    "total_present_and_computable": 17,
+    "category_coverage_check": "PASS",
+    "category_warnings": []
+  },
+  "normalized_events": [
+    {
+      "idempotency_key": "3ed894c7ecc0bd6895fa36becd936a52d8b63611fb13fc41987fcbe904fa363d",
+      "ts": 1791963051.779273,
+      "uid": "CUANUFn3c2F6XbfWf",
+      "orig_ip": "172.22.0.3",
+      "resp_ip": "172.22.0.10",
+      "orig_p": 33654,
+      "resp_p": 8000,
+      "proto": "tcp",
+      "service": "http",
+      "conn_state": "SF",
+      "history": "ShADadFf",
+      "duration": 0.003708,
+      "orig_bytes": 176.0,
+      "resp_bytes": 338.0,
+      "missed_bytes": 0.0,
+      "orig_pkts": 7.0,
+      "resp_pkts": 5.0,
+      "orig_ip_bytes": 548.0,
+      "resp_ip_bytes": 606.0,
+      "local_orig": "T",
+      "local_resp": "T",
+      "Flow_Duration": 3708.0,
+      "Flow_Bytes_s": 138619.20172599785,
+      "Flow_Packets_s": 3236.2459546925566,
+      "Subflow_Fwd_Bytes": 176.0,
+      "Subflow_Bwd_Bytes": 338.0,
+      "Subflow_Fwd_Packets": 7.0,
+      "act_data_pkt_fwd": 6.0,
+      "Fwd_Header_Length": 372.0,
+      "Bwd_Header_Length": 268.0,
+      "Fwd_Packet_Length_Max": 25.142857142857142,
+      "Bwd_Packet_Length_Max": 67.6,
+      "Bwd_Packet_Length_Min": 0.0,
+      "Down_Up_Ratio": 1.9204545454545454,
+      "Average_Packet_Size": 42.833333333333336,
+      "_l7_context": {
+        "http_method": "GET",
+        "http_host": "api-ml:8000",
+        "http_uri": "/health?test_id=val-zeek-1791963046",
+        "http_status_code": 200,
+        "http_user_agent": "python-requests/2.34.2"
+      }
+    }
+  ]
+}

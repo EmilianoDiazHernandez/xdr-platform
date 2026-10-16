@@ -5,6 +5,17 @@ export * from "./executive";
 
 export type NivelSeveridad = "Crítica" | "Alta" | "Media" | "Baja";
 
+export type EstadoAlerta =
+  | "Nueva/Abierta"
+  | "En investigación/Pendiente"
+  | "Escalada"
+  | "Resuelta";
+
+export type DisposicionAlerta =
+  | "Falso positivo"
+  | "Verdadero positivo - Mitigado"
+  | "Verdadero positivo - Benigno";
+
 export interface Alerta {
   id:          number | string;
   ip_origen:   string;
@@ -19,6 +30,8 @@ export interface Alerta {
   vector_origen?: string;
   id_evento_correlacionado?: string;
   isGeneralEvent?: boolean;
+  estado?: EstadoAlerta;
+  disposicion?: DisposicionAlerta;
 }
 
 export interface EstadoServicio {
