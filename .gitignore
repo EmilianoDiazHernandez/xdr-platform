@@ -1,4 +1,4 @@
-﻿# Node / Frontend
+# Node / Frontend
 node_modules/
 dist/
 .env
@@ -12,7 +12,13 @@ env/
 # Base de datos
 data/
 *.sql.gz
+# No ignorar los scripts SQL del proyecto
+!database/**/*.sql
 
 # OS
 Thumbs.db
 Desktop.ini
+
+# Emulation Runtime Artifacts
+**/zeek_logs/
+*.stream_state.json
