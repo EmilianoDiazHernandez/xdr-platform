@@ -76,9 +76,41 @@ def trigger_payload():
     }
 
 @app.post("/traffic/generate-now")
-def generate_traffic_now():
-    """Genera una transacción benigna inmediata hacia el servidor web."""
-    return traffic_sim.send_one_request()
+def generate_traffic_now(target: str = None):
+    """Genera una transacción benigna inmediata hacia el servidor web o target especificado."""
+    url = target or traffic_sim.target_url
+    try:
+        t0 = time.time()
+        res = requests.get(url, timeout=5.0)
+        return {"status": "success", "target": url, "http_status": res.status_code, "duration_s": round(time.time() - t0, 3)}
+    except Exception as e:
+        return {"status": "error", "target": url, "error": str(e)}
+
+@app.post("/traffic/send-to")
+def send_to(target: str = "http://172.16.0.10/"):
+    """Envía una petición HTTP benigna a un destino arbitrario de la red."""
+    try:
+        t0 = time.time()
+        res = requests.get(target, timeout=5.0)
+        return {"status": "success", "target": target, "http_status": res.status_code, "duration_s": round(time.time() - t0, 3)}
+    except Exception as e:
+        return {"status": "error", "target": target, "error": str(e)}
+
+@app.post("/traffic/send-mail")
+def send_mail(target_ip: str = "172.16.0.20", recipient: str = "direccion@corp.local"):
+    """Transmite un correo corporativo legítimo (sin malware/phishing) vía SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+    msg = MIMEText("Estimado equipo,\nAdjunto el reporte semanal de actividades operativas.\nSaludos cordiales.")
+    msg["Subject"] = "Reporte Semanal de Actividades"
+    msg["From"] = f"{DEVICE_HOSTNAME.lower()}@corp.local"
+    msg["To"] = recipient
+    try:
+        with smtplib.SMTP(target_ip, 25, timeout=5) as s:
+            s.send_message(msg)
+        return {"status": "success", "target": f"{target_ip}:25", "message": "Email corporativo legítimo transmitido."}
+    except Exception as e:
+        return {"status": "error", "target": f"{target_ip}:25", "error": str(e)}
 
 @app.post("/traffic/start")
 def start_traffic():

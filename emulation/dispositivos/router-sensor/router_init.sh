@@ -22,5 +22,7 @@ fi
 DMZ_IFACE=$(echo "$DMZ_IFACE" | cut -d'@' -f1)
 
 echo "[ROUTER-INIT] Interfaz seleccionada para captura Zeek: $DMZ_IFACE"
+echo "[ROUTER-INIT] Iniciando servicio HTTP de diagnóstico en el router (puerto 80)..."
+python3 -m http.server 80 &
 echo "[ROUTER-INIT] Iniciando Zeek sniffer pasivo en interfaz '$DMZ_IFACE'..."
-exec zeek -i "$DMZ_IFACE" /app/zeek_configs/local.zeek
+exec zeek -C -i "$DMZ_IFACE" /app/zeek_configs/local.zeek

@@ -17,15 +17,44 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # Configuración de URLs y Direcciones de la Topología
 ATTACKER_URL = os.getenv("ATTACKER_URL", "http://xdr-emu-attacker:5000")
+PARTNER_EXT_URL = os.getenv("PARTNER_EXT_URL", "http://xdr-legit-partner-ext:5000")
+ROUTER_ISP_URL = os.getenv("ROUTER_ISP_URL", "http://xdr-legit-router-isp:80")
 WORKSTATION_URL = os.getenv("WORKSTATION_URL", "http://xdr-emu-workstation:5001")
 WEB_SRV_IP = os.getenv("WEB_SRV_IP", "172.16.0.10")
+WEB_ERP_IP = os.getenv("WEB_ERP_IP", "172.16.0.11")
 MAIL_SRV_IP = os.getenv("MAIL_SRV_IP", "172.16.0.20")
 DB_INTERNAL_IP = os.getenv("DB_INTERNAL_IP", "10.20.30.50")
+DB_ANALYTICS_IP = os.getenv("DB_ANALYTICS_IP", "10.20.30.51")
+ROUTER_GATEWAY_IP = os.getenv("ROUTER_GATEWAY_IP", "172.16.0.1")
+
+WEB_INTRANET_URL = os.getenv("WEB_INTRANET_URL", "http://xdr-legit-web-intranet:80")
+WEB_ERP_URL = os.getenv("WEB_ERP_URL", "http://xdr-legit-web-erp:80")
+SW_DMZ_URL = os.getenv("SW_DMZ_URL", "http://xdr-legit-sw-dmz:80")
+SW_CORE_URL = os.getenv("SW_CORE_URL", "http://xdr-legit-sw-core:80")
+SW_ACCESS_URL = os.getenv("SW_ACCESS_URL", "http://xdr-legit-sw-access:80")
+
+WORKSTATIONS_STR = os.getenv("WORKSTATIONS", "")
+WORKSTATIONS_LIST = [w.strip() for w in WORKSTATIONS_STR.split(",") if w.strip()]
+
+SWITCHES_STR = os.getenv("SWITCHES", "")
+SWITCHES_LIST = [s.strip() for s in SWITCHES_STR.split(",") if s.strip()]
+
+TOPOLOGY_MODE = os.getenv("TOPOLOGY_MODE", "BASE")
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     """Renderiza el Lab Dashboard."""
-    return templates.TemplateResponse(request=request, name="index.html")
+    is_15_nodes = TOPOLOGY_MODE == "15_NODES" or len(WORKSTATIONS_LIST) > 1
+    return templates.TemplateResponse(
+        request=request, 
+        name="index.html",
+        context={
+            "is_15_nodes": is_15_nodes,
+            "topology_mode": TOPOLOGY_MODE,
+            "workstations_count": len(WORKSTATIONS_LIST) if WORKSTATIONS_LIST else 1,
+            "switches_count": len(SWITCHES_LIST)
+        }
+    )
 
 # =========================================================================
 # ENDPOINTS DE CONTROL (ORQUESTACIÓN DE TRÁFICO FÍSICO REAL EN CONTENEDORES)
@@ -45,6 +74,156 @@ def normal_network():
     except Exception as e:
         logger.error(f"Fallo contactando a Workstation: {e}")
         return {"status": "error", "message": f"Error comunicando con Workstation ({WORKSTATION_URL}): {str(e)}"}
+
+@app.post("/api/normal/multi-device")
+def normal_multi_device():
+    """
+    Orquesta tráfico legítimo simultáneo en los 15 dispositivos de la topología:
+    1. Estaciones de trabajo (Ventas, Finanzas, RRHH, TI) consultan portales DMZ (ERP e Intranet).
+    2. PC RRHH envía correo corporativo legítimo vía SMTP a CORP-MAIL (172.16.0.20:25).
+    3. PC TI realiza sondeo a switches gestionados (SW-DMZ, SW-CORE, SW-ACCESS) y router gateway (172.16.0.1).
+    4. Servidores Web DMZ consultan bases de datos transaccionales de la LAN (10.20.30.50 y 10.20.30.51).
+    5. Switch DMZ (172.16.0.2) sondea a switches LAN (10.20.30.2 y 10.20.30.3).
+    6. Switch LAN Core (10.20.30.2) sondea a Switch DMZ (172.16.0.2).
+    7. Cliente Socio Comercial WAN (185.15.2.2) realiza petición autorizada a Intranet DMZ (172.16.0.10).
+    8. Router ISP WAN (185.15.2.3) ejecuta sondeo de conectividad hacia DMZ ERP (172.16.0.11) y Gateway (172.16.0.1).
+    """
+    logger.info("Orquestando tráfico legítimo multi-dispositivo completo (15 nodos)...")
+    results = {
+        "workstations": [],
+        "dmz_to_db": [],
+        "switches": [],
+        "wan": [],
+        "mail": None
+    }
+    
+    # 1. Estaciones de Trabajo -> DMZ
+    ws_targets = {
+        "xdr-legit-pc-ventas": f"http://{WEB_ERP_IP}/",
+        "xdr-legit-pc-finanzas": f"http://{WEB_ERP_IP}/",
+        "xdr-legit-pc-rrhh": f"http://{WEB_SRV_IP}/",
+        "xdr-legit-pc-ti": f"http://{WEB_SRV_IP}/"
+    }
+
+    target_workstations = WORKSTATIONS_LIST if WORKSTATIONS_LIST else [WORKSTATION_URL]
+    for ws_url in target_workstations:
+        target_portal = None
+        for key, url in ws_targets.items():
+            if key in ws_url:
+                target_portal = url
+                break
+        
+        try:
+            if target_portal:
+                r = requests.post(f"{ws_url}/traffic/send-to?target={target_portal}", timeout=4.0)
+            else:
+                r = requests.post(f"{ws_url}/traffic/generate-now", timeout=4.0)
+            results["workstations"].append({"url": ws_url, "target": target_portal, "status": "ok", "data": r.json()})
+        except Exception as e:
+            results["workstations"].append({"url": ws_url, "status": "error", "error": str(e)})
+
+    # 2. PC RRHH -> Envío de Correo Corporativo (SMTP :25 a 172.16.0.20)
+    rrhh_url = next((w for w in target_workstations if "rrhh" in w), None)
+    if rrhh_url:
+        try:
+            r = requests.post(f"{rrhh_url}/traffic/send-mail?target_ip={MAIL_SRV_IP}&recipient=reporte.semanal@corp.local", timeout=5.0)
+            results["mail"] = {"sender": "PC-RRHH", "target": f"{MAIL_SRV_IP}:25", "result": r.json()}
+        except Exception as e:
+            results["mail"] = {"sender": "PC-RRHH", "error": str(e)}
+
+    # 3. PC TI -> Sondeo de switches gestionados y Gateway
+    ti_url = next((w for w in target_workstations if "ti" in w), None)
+    if ti_url:
+        probe_targets = [
+            f"http://{ROUTER_GATEWAY_IP}/",
+            "http://172.16.0.2/health",
+            "http://10.20.30.2/health",
+            "http://10.20.30.3/health"
+        ]
+        ti_probes = []
+        for pt in probe_targets:
+            try:
+                r = requests.post(f"{ti_url}/traffic/send-to?target={pt}", timeout=3.0)
+                ti_probes.append({"target": pt, "status": "ok", "data": r.json()})
+            except Exception as e:
+                ti_probes.append({"target": pt, "status": "error", "error": str(e)})
+        results["workstations"].append({"url": ti_url, "probes": ti_probes})
+
+    # 4. Servidores Web DMZ -> Bases de Datos LAN (10.20.30.50 y 10.20.30.51)
+    dmz_servers = [
+        (WEB_INTRANET_URL, DB_INTERNAL_IP),
+        (WEB_ERP_URL, DB_ANALYTICS_IP)
+    ]
+    for srv_url, db_ip in dmz_servers:
+        try:
+            r = requests.post(f"{srv_url}/api/db-query?target_db={db_ip}", timeout=3.0)
+            results["dmz_to_db"].append({"from": srv_url, "to": db_ip, "status": "ok", "data": r.json()})
+        except Exception as e:
+            results["dmz_to_db"].append({"from": srv_url, "to": db_ip, "status": "error", "error": str(e)})
+
+    # 5. Switches -> Sondeo de red cruzada y telemetría
+    sw_probes = [
+        (SW_DMZ_URL, f"http://{ROUTER_GATEWAY_IP}/"),
+        (SW_DMZ_URL, "http://10.20.30.2/health"),
+        (SW_DMZ_URL, "http://10.20.30.3/health"),
+        (SW_CORE_URL, "http://172.16.0.2/health"),
+        (SW_ACCESS_URL, "http://172.16.0.2/health")
+    ]
+    for src_sw, tgt in sw_probes:
+        try:
+            r = requests.post(f"{src_sw}/traffic/probe?target={tgt}", timeout=3.0)
+            results["switches"].append({"from": src_sw, "target": tgt, "status": "ok", "data": r.json()})
+        except Exception as e:
+            results["switches"].append({"from": src_sw, "target": tgt, "status": "error", "error": str(e)})
+
+    # 6. WAN -> Segmento DMZ (Cliente externo y Router ISP)
+    # Partner Comercial -> Intranet
+    try:
+        r = requests.post(f"{PARTNER_EXT_URL}/traffic/benign-request?target_url=http://{WEB_SRV_IP}/", timeout=4.0)
+        results["wan"].append({"from": "PARTNER-EXT (185.15.2.2)", "target": f"http://{WEB_SRV_IP}/", "status": "ok", "data": r.json()})
+    except Exception as e:
+        results["wan"].append({"from": "PARTNER-EXT (185.15.2.2)", "status": "error", "error": str(e)})
+
+    # Router ISP -> DMZ ERP & Gateway
+    for tgt in [f"http://{WEB_ERP_IP}/", f"http://{ROUTER_GATEWAY_IP}/"]:
+        try:
+            r = requests.post(f"{ROUTER_ISP_URL}/traffic/probe?target={tgt}", timeout=3.0)
+            results["wan"].append({"from": "ROUTER-ISP (185.15.2.3)", "target": tgt, "status": "ok", "data": r.json()})
+        except Exception as e:
+            results["wan"].append({"from": "ROUTER-ISP (185.15.2.3)", "target": tgt, "status": "error", "error": str(e)})
+
+    return {
+        "status": "success",
+        "message": "Tráfico legítimo distribuido ejecutado exitosamente en los 15 dispositivos de la red (PCs, Switches, Servidores DMZ, DBs, Router y WAN).",
+        "details": results
+    }
+
+@app.post("/api/normal/switches")
+def poll_switches():
+    """Sondea el estado y telemetría de los switches gestionados (L2/L3)."""
+    logger.info("Sondeando switches gestionados...")
+    results = []
+    for sw_url in SWITCHES_LIST:
+        try:
+            r = requests.get(f"{sw_url}/health", timeout=3.0)
+            results.append({"url": sw_url, "health": r.json()})
+        except Exception as e:
+            results.append({"url": sw_url, "error": str(e)})
+    return {
+        "status": "success" if results else "notice",
+        "message": f"Sondeo completado en {len(results)} switches.",
+        "switches": results
+    }
+
+@app.get("/api/topology/info")
+def get_topology_info():
+    """Retorna metadatos de la topología activa."""
+    return {
+        "mode": TOPOLOGY_MODE,
+        "is_15_nodes": TOPOLOGY_MODE == "15_NODES" or len(WORKSTATIONS_LIST) > 1,
+        "workstations_count": len(WORKSTATIONS_LIST) if WORKSTATIONS_LIST else 1,
+        "switches_count": len(SWITCHES_LIST)
+    }
 
 @app.post("/api/attack/network")
 def attack_network():
