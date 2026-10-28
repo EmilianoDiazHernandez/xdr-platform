@@ -31,16 +31,14 @@ def analyze_network(log):
     features_num_red = config_red.get('features_num', [])
     features_cat_red = config_red.get('features_cat', [])
 
-    # 1. Variables Binarias
+    # 1. Variables Binarias (4 características coincidentes con BIN_COLS de entrenamiento)
     hist = log.history.lower() if log.history else ""
     hist_S = 1 if 's' in hist else 0
     hist_R = 1 if 'r' in hist else 0
     hist_A = 1 if 'a' in hist else 0
     hist_F = 1 if 'f' in hist else 0
 
-    loc_orig = 1 if log.local_orig.upper() == 'T' else 0
-    loc_resp = 1 if log.local_resp.upper() == 'T' else 0
-    bin_data = np.array([[loc_orig, loc_resp, hist_S, hist_R, hist_A, hist_F]], dtype=np.float64)
+    bin_data = np.array([[hist_S, hist_R, hist_A, hist_F]], dtype=np.float64)
 
     # 2. Variables Numéricas
     num_dict = log.model_dump(include=set(features_num_red))
@@ -63,7 +61,7 @@ def analyze_network(log):
     df_cat = pd.DataFrame([cat_dict])[features_cat_red]
     X_cat_encoded = rf_encoder.transform(df_cat)
 
-    # 4. Fusión y Predicción
+    # 4. Fusión y Predicción (54 dimensiones coincidentes con n_features_in_)
     X_final = np.hstack((X_num_scaled, X_cat_encoded, bin_data))
     probs = rf_modelo.predict_proba(X_final)
     prob_red = float(probs[0][1])

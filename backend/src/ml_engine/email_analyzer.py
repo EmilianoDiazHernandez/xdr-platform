@@ -26,6 +26,8 @@ def analyze_email(log):
     feat_dict = log.model_dump(exclude={'host', 'ip_local', 'texto_completo', 'urls_extraidas'})
     feat_dict['num_urls_maliciosas'] = num_maliciosas
     feat_dict['en_lista_negra'] = 1 if num_maliciosas > 0 else 0
+    if 'longitud_texto' in columnas_email:
+        feat_dict['longitud_texto'] = len(str(log.texto_completo or ''))
 
     df_struct = pd.DataFrame([feat_dict])
     for col in columnas_email:

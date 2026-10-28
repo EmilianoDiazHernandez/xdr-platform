@@ -53,14 +53,17 @@ class FusionService:
         # Unión de probabilidades: si no hay alerta EDR, no se castiga el score Red.
         prob_fusion = prob_red + prob_edr - (prob_red * prob_edr)
         
-        config_red = ModelLoader.get('red')['config']
-        alerta_cruzada = prob_fusion >= 0.65
-        umbral_red = config_red.get('umbral', 0.480) 
+        config_red = ModelLoader.get('red').get('config', {})
+        umbrales_red = config_red.get('umbrales', {})
+        umbral_alerta = umbrales_red.get('alerta', config_red.get('umbral', 0.450))
+        umbral_bloqueo = umbrales_red.get('bloqueo', 0.730)
         
-        if alerta_cruzada:
+        alerta_cruzada = prob_fusion >= 0.65
+        
+        if alerta_cruzada or prob_red >= umbral_bloqueo:
             accion = "BLOQUEAR_IP_Y_HOST"
             severidad = "Alta"
-        elif prob_red >= umbral_red:
+        elif prob_red >= umbral_alerta:
             accion = "ALERTA"
             severidad = "Media"
         else:

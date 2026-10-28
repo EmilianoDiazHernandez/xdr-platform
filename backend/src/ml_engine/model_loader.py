@@ -16,13 +16,14 @@ class ModelLoader:
         # --- Capa RED ---
         try:
             ruta_red = os.path.join(models_dir, 'CAPA_RED')
+            config_red = joblib.load(f'{ruta_red}/xdr_red_config.pkl')
             cls._models['red'] = {
-                'config': joblib.load(f'{ruta_red}/xdr_red_config.pkl'),
+                'config': config_red,
                 'model': joblib.load(f'{ruta_red}/xdr_red_model.pkl'),
                 'scaler': joblib.load(f'{ruta_red}/xdr_red_scaler.pkl'),
                 'encoder': joblib.load(f'{ruta_red}/xdr_red_encoder.pkl')
             }
-            logger.info("[OK] Capa RED cargada.")
+            logger.info(f"[OK] Capa RED cargada. Versión: {config_red.get('version', 'v3')}")
         except Exception as e:
             logger.error(f"Falla Capa RED: {e}")
 
@@ -38,14 +39,18 @@ class ModelLoader:
             vocabulario_nlp = list(edr_vectorizador.get_feature_names_out())
             columnas_estructuradas = [c for c in columnas_completas if c not in vocabulario_nlp]
 
+            scaler_path = f'{ruta_edr}/xdr_endpoint_scaler.pkl'
+            scaler_edr = joblib.load(scaler_path) if os.path.exists(scaler_path) else None
+
             cls._models['edr'] = {
                 'config': config_edr,
                 'model': joblib.load(f'{ruta_edr}/xdr_endpoint_model.pkl'),
                 'vectorizer': edr_vectorizador,
+                'scaler': scaler_edr,
                 'cadenas': edr_cadenas,
                 'columnas_estructuradas': columnas_estructuradas
             }
-            logger.info("[OK] Capa ENDPOINT cargada.")
+            logger.info(f"[OK] Capa ENDPOINT cargada. Versión: {config_edr.get('version', 'v3.2')}")
         except Exception as e:
             logger.error(f"Falla Capa ENDPOINT: {e}")
 
@@ -63,7 +68,7 @@ class ModelLoader:
                 'intel': email_intel,
                 'columnas_estructuradas': config_email.get('columnas_estructuradas', [])
             }
-            logger.info(f"[OK] Capa EMAIL cargada. OSINT: {len(email_intel)} URLs en lista negra")
+            logger.info(f"[OK] Capa EMAIL cargada. Versión: {config_email.get('version', 'v6')} | OSINT: {len(email_intel)} URLs en lista negra")
         except Exception as e:
             logger.error(f"Falla Capa EMAIL: {e}")
 

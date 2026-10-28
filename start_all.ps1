@@ -6,13 +6,16 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
+# Asegurar que siempre corra desde el directorio raíz de xdr-platform
+Set-Location $PSScriptRoot
+
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   Iniciando Plataforma XDR y Cyber Range Completo        " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Iniciar Plataforma XDR (Backend, Frontend, TimescaleDB, Redis)
 Write-Host "`n[1/3] Levantando Plataforma XDR (SOC / Backend / Frontend)..." -ForegroundColor Yellow
-docker compose up -d
+docker compose up -d --build
 
 Write-Host "Esperando inicializacion de la API XDR (http://localhost:8000/health)..." -ForegroundColor Gray
 $retries = 30

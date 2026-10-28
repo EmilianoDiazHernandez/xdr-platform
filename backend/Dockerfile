@@ -1,16 +1,13 @@
-FROM python:3.11-slim-bullseye
+FROM python:3.11-slim-bookworm
 
 # Dependencias para WeasyPrint (renderizado de PDF) y utilidades
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-cffi \
-    python3-brotli \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libharfbuzz0b \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \
     libglib2.0-0 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libffi-dev \
     shared-mime-info \
     libjpeg-dev \

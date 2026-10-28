@@ -19,6 +19,9 @@ data/
 Thumbs.db
 Desktop.ini
 
+# Backups
+backend/models_data_backup_v2/
+
 # Emulation Runtime Artifacts
 **/zeek_logs/
 *.stream_state.json
