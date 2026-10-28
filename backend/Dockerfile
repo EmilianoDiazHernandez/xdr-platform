@@ -2,6 +2,7 @@ FROM python:3.11-slim-bookworm
 
 # Dependencias para WeasyPrint (renderizado de PDF) y utilidades
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
     libpango-1.0-0 \
     libharfbuzz0b \
     libpangoft2-1.0-0 \
