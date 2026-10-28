@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchTopology, fetchEvents, fetchIncidentTimeline } from "../api/config";
-import { TopologyData, TopologyNode, CorrelatedEvent } from "../types";
+import { fetchTopology, fetchEvents, fetchIncidentTimeline, fetchAlertas } from "../api/config";
+import { TopologyData, TopologyNode, CorrelatedEvent, Alerta } from "../types";
 import { NetworkGraph } from "../components/NetworkGraph";
 import { CyberKillChainTimeline } from "../components/CyberKillChainTimeline";
 import { ShieldAlert, X, Server, Network, Activity, ShieldCheck } from "lucide-react";
@@ -10,6 +10,8 @@ export function Topology({ nodoInicial }: { nodoInicial?: string | null } = {}) 
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<TopologyNode | null>(null);
   const [panelAbierto, setPanelAbierto] = useState(false);
+  const [allEvents, setAllEvents] = useState<CorrelatedEvent[]>([]);
+  const [allAlerts, setAllAlerts] = useState<Alerta[]>([]);
 
   // Estado para la Trazabilidad Táctica (Cyber Kill Chain)
   const [killChainTimeline, setKillChainTimeline] = useState<any[]>([]);
@@ -76,8 +78,14 @@ export function Topology({ nodoInicial }: { nodoInicial?: string | null } = {}) 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetchTopology();
-        setData(res);
+        const [topoRes, eventsRes, alertsRes] = await Promise.allSettled([
+          fetchTopology(),
+          fetchEvents(),
+          fetchAlertas()
+        ]);
+        if (topoRes.status === "fulfilled") setData(topoRes.value);
+        if (eventsRes.status === "fulfilled") setAllEvents(eventsRes.value);
+        if (alertsRes.status === "fulfilled") setAllAlerts(alertsRes.value);
       } catch (e) {
         console.error(e);
       } finally {
@@ -145,6 +153,8 @@ export function Topology({ nodoInicial }: { nodoInicial?: string | null } = {}) 
           <NetworkGraph 
             nodes={data.nodes} 
             edges={data.edges} 
+            events={allEvents}
+            alerts={allAlerts}
             onSelectNode={(node) => {
               setSelectedNode(node);
               setPanelAbierto(true);
