@@ -55,6 +55,16 @@ def vulnerable_exec(req: ExecRequest):
         "edr_telemetry": hook_result
     }
 
+@app.post("/api/db-query")
+def db_query(target_db: str = "10.20.30.50"):
+    """Simula una consulta transaccional backend hacia las Bases de Datos de la LAN."""
+    import requests
+    try:
+        res = requests.get(f"http://{target_db}:8050/health", timeout=4.0)
+        return {"status": "success", "db": target_db, "http_status": res.status_code}
+    except Exception as e:
+        return {"status": "error", "db": target_db, "error": str(e)}
+
 @app.get("/api/edr-logs")
 def get_edr_logs():
     """Retorna los eventos Sysmon generados localmente para auditoría."""

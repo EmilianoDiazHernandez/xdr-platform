@@ -2,97 +2,193 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>XDR Emulation - Lab Dashboard</title>
+    <title>XDR Emulation - Lab Dashboard C2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #network-graph {
-            width: 100%;
-            height: 600px;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
+        body { background-color: #0b1120; color: #f8fafc; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
     </style>
 </head>
-<body class="min-h-screen">
-    <div class="max-w-4xl mx-auto p-6">
+<body class="min-h-screen py-8 px-4">
+    <div class="max-w-5xl mx-auto space-y-6">
         
         <!-- Cabecera -->
-        <header class="mb-8 border-b border-slate-700 pb-4 text-center">
-            <h1 class="text-3xl font-bold text-cyan-400">Panel de Control de Simulación (C2)</h1>
-            <p class="text-slate-400 mt-2">Dispara escenarios de ataque realistas. Observa los resultados en el <b>Mapa de Topología de tu XDR (Puerto 3000)</b>.</p>
+        <header class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center shadow-xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-500"></div>
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="text-left">
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-cyan-400 tracking-tight flex items-center gap-2">
+                        <span>Panel de Control de Simulación (C2)</span>
+                    </h1>
+                    <p class="text-slate-400 text-sm mt-1">
+                        Orquestador de telemetría y escenarios en vivo. Visualiza los flujos en el 
+                        <a href="http://localhost:3000" target="_blank" class="text-indigo-400 font-semibold underline hover:text-indigo-300">
+                            Mapa de Topología del SOC (Puerto 3000)
+                        </a>.
+                    </p>
+                </div>
+                <div class="flex-shrink-0 flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-lg border border-slate-800">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs font-mono font-bold text-slate-300">
+                        {% if is_15_nodes %}
+                            Topología: 15 Dispositivos (Core / Acceso)
+                        {% else %}
+                            Topología: Base (6 Nodos)
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
         </header>
 
-        <!-- Panel de Botones de Ataque -->
-        <div class="bg-slate-800 p-8 rounded-lg shadow-lg border border-slate-700">
-            <h2 class="text-xl font-semibold mb-6 border-b border-slate-600 pb-2 text-center">Inyección de Escenarios</h2>
+        {% if is_15_nodes %}
+        <!-- Tarjeta Informativa de la Red de 15 Nodos -->
+        <div class="bg-slate-900/90 border border-indigo-950/80 rounded-xl p-5 shadow-lg">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-2">
+                <span>Arquitectura Jerárquica Activa (15 Nodos Reales)</span>
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-500 block text-[10px] uppercase font-bold">2 Routers L3</span>
+                    <span class="font-semibold text-slate-200">Gateway Zeek + ISP</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-500 block text-[10px] uppercase font-bold">3 Switches</span>
+                    <span class="font-semibold text-slate-200">SW-DMZ, Core y Acceso</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-500 block text-[10px] uppercase font-bold">3 Servidores DMZ</span>
+                    <span class="font-semibold text-slate-200">Intranet, ERP, Mail</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-500 block text-[10px] uppercase font-bold">2 Bases de Datos</span>
+                    <span class="font-semibold text-slate-200">DB Prod + Analytics</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 col-span-2 sm:col-span-1">
+                    <span class="text-slate-500 block text-[10px] uppercase font-bold">4 PCs + 1 Partner</span>
+                    <span class="font-semibold text-slate-200">Ventas, Fin, RRHH, TI</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Panel de Inyección de Escenarios -->
+        <div class="bg-slate-900 p-6 sm:p-8 rounded-xl shadow-xl border border-slate-800 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 class="text-lg font-bold text-slate-100">Disparo de Escenarios en Vivo</h2>
+                <span class="text-xs font-mono text-slate-500">FastAPI C2 Engine</span>
+            </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Trafico Normal -->
-                <div class="p-6 bg-slate-700 rounded-md border-t-4 border-emerald-500 hover:bg-slate-600 transition text-center col-span-1 md:col-span-3">
-                    <h3 class="font-bold text-emerald-400 mb-2 text-lg">Tráfico Legítimo</h3>
-                    <p class="text-sm text-slate-300 mb-3">Simula a un empleado en Ventas-PC navegando de forma segura hacia el Web Server.</p>
-                    <button onclick="lanzarAtaque('normal/network')" class="w-64 mx-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded transition shadow-lg">
-                        Generar Tráfico Normal
-                    </button>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                
+                <!-- Escenario: Tráfico Legítimo Multi-Dispositivo -->
+                <div class="p-5 bg-slate-950 rounded-xl border border-emerald-500/30 hover:border-emerald-500/60 transition flex flex-col justify-between col-span-1 md:col-span-3">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-bold text-emerald-400 text-base">Escenario Principal: Tráfico Legítimo</h3>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                                BENIGNO (prob_anomalia &lt; 0.10)
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">
+                            Simula actividad real en la red corporativa. Todas las estaciones de trabajo (Ventas, Finanzas, RRHH, TI) realizan consultas HTTP a portales DMZ (ERP e Intranet) y sondeo a los switches gestionados.
+                        </p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button onclick="lanzarAtaque('normal/multi-device')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg transition shadow-lg text-xs flex items-center justify-center gap-2">
+                            <span>⚡</span>
+                            <span>Disparar Tráfico Multi-Dispositivo (15 Nodos)</span>
+                        </button>
+                        <button onclick="lanzarAtaque('normal/switches')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-2.5 px-4 rounded-lg transition text-xs flex items-center justify-center gap-2">
+                            <span>🔌</span>
+                            <span>Sondear Switches L2/L3</span>
+                        </button>
+                        <button onclick="lanzarAtaque('normal/network')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold py-2.5 px-3 rounded-lg transition text-xs">
+                            Petición Única (Ventas)
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Capa Red -->
-                <div class="p-6 bg-slate-700 rounded-md border-t-4 border-red-500 hover:bg-slate-600 transition text-center">
-                    <h3 class="font-bold text-red-400 mb-2 text-lg">Reconocimiento (Red)</h3>
-                    <p class="text-sm text-slate-300 mb-6">Simula un atacante ruso escaneando la DMZ y atacando el Web Server.</p>
-                    <button onclick="lanzarAtaque('network')" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded transition shadow-lg">
+                <div class="p-5 bg-slate-950 rounded-xl border border-red-500/30 hover:border-red-500/60 transition flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-red-400 mb-1.5 text-base">Reconocimiento (Red)</h3>
+                        <p class="text-xs text-slate-400 mb-4">
+                            Escaneo TCP SYN (`nmap`) y ráfaga de paquetes (`hping3`) desde el segmento WAN hacia la DMZ.
+                        </p>
+                    </div>
+                    <button onclick="lanzarAtaque('network')" class="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-3 rounded-lg transition shadow text-xs">
                         Lanzar Ataque de Red
                     </button>
                 </div>
 
                 <!-- Capa Endpoint -->
-                <div class="p-6 bg-slate-700 rounded-md border-t-4 border-amber-500 hover:bg-slate-600 transition text-center">
-                    <h3 class="font-bold text-amber-400 mb-2 text-lg">Ejecución (Endpoint)</h3>
-                    <p class="text-sm text-slate-300 mb-6">Simula a un empleado en la LAN ejecutando Mimikatz en memoria.</p>
-                    <button onclick="lanzarAtaque('endpoint')" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-3 px-4 rounded transition shadow-lg">
+                <div class="p-5 bg-slate-950 rounded-xl border border-amber-500/30 hover:border-amber-500/60 transition flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-amber-400 mb-1.5 text-base">Ejecución (Endpoint)</h3>
+                        <p class="text-xs text-slate-400 mb-4">
+                            Inyección de comando sospechoso (`powershell -enc mimikatz`) emitiendo telemetría Sysmon EventID 1.
+                        </p>
+                    </div>
+                    <button onclick="lanzarAtaque('endpoint')" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-3 rounded-lg transition shadow text-xs">
                         Infectar Endpoint
                     </button>
                 </div>
 
                 <!-- Capa Email -->
-                <div class="p-6 bg-slate-700 rounded-md border-t-4 border-blue-500 hover:bg-slate-600 transition text-center">
-                    <h3 class="font-bold text-blue-400 mb-2 text-lg">Phishing (Email)</h3>
-                    <p class="text-sm text-slate-300 mb-6">Envía un correo con adjunto malicioso al servidor de correo corporativo.</p>
-                    <button onclick="lanzarAtaque('email')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded transition shadow-lg">
+                <div class="p-5 bg-slate-950 rounded-xl border border-sky-500/30 hover:border-sky-500/60 transition flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-sky-400 mb-1.5 text-base">Phishing (Email)</h3>
+                        <p class="text-xs text-slate-400 mb-4">
+                            Transmisión socket SMTP puerto 25 con enlaces phishing y adjunto sospechoso hacia `CORP-MAIL`.
+                        </p>
+                    </div>
+                    <button onclick="lanzarAtaque('email')" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2 px-3 rounded-lg transition shadow text-xs">
                         Enviar Phishing
                     </button>
                 </div>
 
                 <!-- Movimiento Lateral -->
-                <div class="p-6 bg-slate-700 rounded-md border-t-4 border-purple-500 hover:bg-slate-600 transition text-center md:col-span-3">
-                    <h3 class="font-bold text-purple-400 mb-2 text-lg">Movimiento Lateral (Correlación Cruzada)</h3>
-                    <p class="text-sm text-slate-300 mb-6">Simula un ataque externo a la DMZ seguido de un pivote hacia la Base de Datos interna. Comprueba el grafo.</p>
-                    <button onclick="lanzarAtaque('lateral')" class="w-full md:w-1/2 mx-auto bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded transition shadow-lg block">
-                        Ejecutar Movimiento Lateral
-                    </button>
+                <div class="p-5 bg-slate-950 rounded-xl border border-purple-500/30 hover:border-purple-500/60 transition flex flex-col justify-between md:col-span-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                        <div>
+                            <h3 class="font-bold text-purple-400 text-base">Movimiento Lateral (Correlación Cruzada Multi-Vector)</h3>
+                            <p class="text-xs text-slate-400">
+                                Cadena de 3 etapas: Exploit Web DMZ (WAN $\rightarrow$ DMZ) $\rightarrow$ Hook EDR en servidor $\rightarrow$ Pivote este-oeste hacia SMB Base de Datos (:445).
+                            </p>
+                        </div>
+                        <button onclick="lanzarAtaque('lateral')" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2.5 px-6 rounded-lg transition shadow text-xs flex-shrink-0">
+                            Ejecutar Movimiento Lateral
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Consola de Resultados (Status) -->
-            <div id="status-box" class="mt-8 p-4 bg-slate-900 border border-slate-600 rounded text-sm text-green-400 hidden font-mono h-32 overflow-y-auto">
-                <!-- Logs insertados vía JS -->
+            <!-- Consola de Resultados Interactiva -->
+            <div class="border-t border-slate-800 pt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">Consola de Respuestas C2:</span>
+                    <button onclick="limpiarConsola()" class="text-[11px] text-slate-500 hover:text-slate-300 font-mono">Limpiar consola</button>
+                </div>
+                <div id="status-box" class="p-4 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-emerald-400 h-36 overflow-y-auto space-y-1 custom-scrollbar">
+                    <span class="text-slate-600">&gt; Consola lista. Selecciona un escenario arriba para despachar telemetría a la red...</span>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        function limpiarConsola() {
+            const statusBox = document.getElementById('status-box');
+            statusBox.innerHTML = '<span class="text-slate-600">&gt; Consola lista...</span>';
+        }
+
         async function lanzarAtaque(tipo) {
             const statusBox = document.getElementById('status-box');
+            const timestamp = new Date().toLocaleTimeString();
             
-            statusBox.classList.remove('hidden');
-            statusBox.innerHTML = `> [COMANDO] Despachando escenario: <span class="text-white">${tipo.toUpperCase()}</span>...`;
+            statusBox.innerHTML += `<div class="text-slate-300 border-t border-slate-800/80 pt-1 mt-1">[${timestamp}] &gt; [DESPACHO] Escenario: <span class="text-cyan-300 font-bold">${tipo.toUpperCase()}</span>...</div>`;
+            statusBox.scrollTop = statusBox.scrollHeight;
 
             try {
-                // Determina la ruta en base al tipo
                 const endpoint = tipo.startsWith('normal') ? `/api/${tipo}` : `/api/attack/${tipo}`;
                 const response = await fetch(endpoint, { method: 'POST' });
                 
@@ -103,13 +199,15 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    statusBox.innerHTML += `<br>> [EXITO] Payloads inyectados. La telemetría está fluyendo hacia la Plataforma XDR.<br>> <span class="text-cyan-400">Revisa la Topología en el Puerto 3000 para ver la propagación.</span>`;
+                    statusBox.innerHTML += `<div class="text-emerald-400">&gt; [OK] ${result.message}</div>`;
+                    statusBox.innerHTML += `<div class="text-sky-400 text-[11px]">&gt; ➔ Observa los nodos activos y flujos en el mapa SOC: <a href="http://localhost:3000" target="_blank" class="underline font-bold">http://localhost:3000</a></div>`;
                 } else {
-                    statusBox.innerHTML += `<br>> <span class="text-red-500">[ERROR] ${result.message}</span>`;
+                    statusBox.innerHTML += `<div class="text-amber-400">&gt; [AVISO] ${result.message || 'Sin respuesta detallada'}</div>`;
                 }
             } catch (error) {
-                statusBox.innerHTML += `<br>> <span class="text-red-500">[Fallo de Red o API] ${error.message}</span>`;
+                statusBox.innerHTML += `<div class="text-red-400">&gt; [FALLO DE CONEXIÓN] ${error.message}</div>`;
             }
+            statusBox.scrollTop = statusBox.scrollHeight;
         }
     </script>
 </body>

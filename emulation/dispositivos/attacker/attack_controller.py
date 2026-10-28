@@ -45,6 +45,16 @@ def health():
         "hostname": socket.gethostname()
     }
 
+@app.post("/traffic/benign-request")
+def benign_request(target_url: str = "http://172.16.0.10/"):
+    """Emite una petición web benigna y autorizada desde el segmento WAN hacia la DMZ."""
+    try:
+        t0 = time.time()
+        res = requests.get(target_url, timeout=5.0)
+        return {"status": "success", "target": target_url, "http_status": res.status_code, "duration_s": round(time.time() - t0, 3)}
+    except Exception as e:
+        return {"status": "error", "target": target_url, "error": str(e)}
+
 @app.post("/attack/scan")
 def run_scan(req: ScanRequest):
     """Ejecuta escaneo TCP SYN mediante nmap o socket fallback."""
